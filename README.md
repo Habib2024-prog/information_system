@@ -49,4 +49,11 @@
    alembic -c backend/alembic.ini upgrade head
    ```
 
-No business models or business-table migrations are included yet.
+8. Seed the predefined departments after applying migrations.
+
+   ```powershell
+   Set-Location backend
+   python -m app.db.seed_departments
+   ```
+
+The Department module is the only business module currently included.

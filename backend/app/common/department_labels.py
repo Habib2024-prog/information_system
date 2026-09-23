@@ -1,8 +1,19 @@
 from typing import Final
 
 
+EDUCATION_TRAINING_DEPARTMENT_CODE: Final = "education_training"
+
 DEPARTMENT_DISPLAY_LABELS: Final[dict[str, str]] = {
-    "education_training": "تعلیم و تربیه",
+    EDUCATION_TRAINING_DEPARTMENT_CODE: "تعلیم و تربیه",
+    "dari_language_literature": "زبان و ادبیات دری",
+    "pashto_language_literature": "زبان و ادبیات پشتو",
+    "arabic_language": "زبان عربی",
+    "science": "ساینس",
+    "mathematics": "ریاضی",
+    "english_language_literature": "زبان و ادبیات انگلیسی",
+    "social_sciences": "علوم اجتماعی",
+    "religious_sciences": "علوم دینی",
+    "computer": "کمپیوتر",
 }
 
 

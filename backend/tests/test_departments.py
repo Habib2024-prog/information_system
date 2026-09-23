@@ -1,21 +1,38 @@
 from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.common.department_labels import DEPARTMENT_DISPLAY_LABELS
 from app.models.department import Department
 from app.services.department_service import DepartmentService
+
+
+EXPECTED_DEPARTMENTS = {
+    "education_training": "تعلیم و تربیه",
+    "dari_language_literature": "زبان و ادبیات دری",
+    "pashto_language_literature": "زبان و ادبیات پشتو",
+    "arabic_language": "زبان عربی",
+    "science": "ساینس",
+    "mathematics": "ریاضی",
+    "english_language_literature": "زبان و ادبیات انگلیسی",
+    "social_sciences": "علوم اجتماعی",
+    "religious_sciences": "علوم دینی",
+    "computer": "کمپیوتر",
+}
 
 
 def test_seed_departments_is_idempotent(db_session: Session) -> None:
     service = DepartmentService()
 
-    assert service.seed_predefined_departments(db_session) == 1
+    assert DEPARTMENT_DISPLAY_LABELS == EXPECTED_DEPARTMENTS
+    assert service.seed_predefined_departments(db_session) == 10
     assert service.seed_predefined_departments(db_session) == 0
 
-    department_count = db_session.scalar(select(func.count()).select_from(Department))
-    assert department_count == 1
+    departments = list(db_session.scalars(select(Department).order_by(Department.code)))
+    assert len(departments) == 10
+    assert {department.code for department in departments} == set(EXPECTED_DEPARTMENTS)
 
 
 def test_department_api_create_get_and_update(client: TestClient) -> None:

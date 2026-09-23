@@ -32,6 +32,20 @@ class DepartmentRepository:
             statement = statement.where(Department.deleted_at.is_(None))
         return db.scalar(statement)
 
+    def list_active_by_ids(self, db: Session, department_ids: list[int]) -> list[Department]:
+        if not department_ids:
+            return []
+
+        statement = (
+            select(Department)
+            .where(
+                Department.id.in_(department_ids),
+                Department.deleted_at.is_(None),
+            )
+            .order_by(Department.code)
+        )
+        return list(db.scalars(statement))
+
     def create(self, db: Session, *, code: str) -> Department:
         department = Department(code=code)
         db.add(department)
