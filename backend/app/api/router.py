@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.routes.departments import router as departments_router
 
-# Future domain routers belong under the versionless /api prefix.
 api_router = APIRouter(prefix="/api")
+api_router.include_router(departments_router)
