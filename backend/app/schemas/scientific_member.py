@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -34,6 +35,7 @@ class ScientificMemberRead(BaseModel):
     department_id: int
     department: DepartmentRead
     notes: str | None
+    observation_count: int
     created_at: datetime
     updated_at: datetime
 
@@ -55,3 +57,25 @@ ScientificMemberSortField = Literal[
     "department_id",
 ]
 SortOrder = Literal["asc", "desc"]
+
+ObservationHistoryType = Literal["teacher", "amir_senior_teacher"]
+
+
+class ScientificMemberObservationHistoryItem(BaseModel):
+    observation_id: int
+    observation_type: ObservationHistoryType
+    observed_employee_id: int
+    observed_employee_name: str
+    observed_employee_father_name: str
+    observed_employee_job_title_code: str
+    observation_date: date
+    subject: str
+    total_score: Decimal
+    final_result_code: str | None
+
+
+class ScientificMemberObservationHistoryResponse(BaseModel):
+    items: list[ScientificMemberObservationHistoryItem]
+    total: int
+    page: int
+    page_size: int

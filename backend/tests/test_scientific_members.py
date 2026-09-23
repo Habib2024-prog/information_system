@@ -218,6 +218,7 @@ def test_scientific_member_response_returns_full_details(
             "updated_at": body["department"]["updated_at"],
         },
         "notes": "ملاحظات تفصیلی عضو علمی",
+        "observation_count": 0,
         "created_at": body["created_at"],
         "updated_at": body["updated_at"],
     }
