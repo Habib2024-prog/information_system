@@ -5,6 +5,8 @@ from app.models.amir_observation import AmirObservation
 from app.models.employee import Employee
 from app.models.employee_department import EmployeeDepartment
 from app.models.scientific_member import ScientificMember
+from app.models.school import School
+from app.models.school_grade_statistic import SchoolGradeStatistic
 from app.models.teacher_observation import TeacherObservation
 
 __all__ = [
@@ -13,5 +15,7 @@ __all__ = [
     "Employee",
     "EmployeeDepartment",
     "ScientificMember",
+    "School",
+    "SchoolGradeStatistic",
     "TeacherObservation",
 ]
