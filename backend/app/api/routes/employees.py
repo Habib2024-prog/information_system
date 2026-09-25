@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_employee_filters
 from app.db.session import get_db
 from app.repositories.employee_repository import EmployeeFilters
 from app.schemas.employee import (
@@ -19,49 +20,24 @@ from app.services.employee_service import (
     InvalidDepartmentIdsError,
     RequiredDepartmentUnavailableError,
 )
+from app.services.excel_export_service import ExcelExportService
 
 
 router = APIRouter(prefix="/employees", tags=["کارمندان"])
 DbSession = Annotated[Session, Depends(get_db)]
 service = EmployeeService()
+excel_export_service = ExcelExportService(employee_service=service)
 
 
 @router.get("", response_model=EmployeeListResponse)
 def list_employees(
     db: DbSession,
-    search: str | None = None,
-    name: str | None = None,
-    father_name: str | None = None,
-    school_workplace: str | None = None,
-    city_district: str | None = None,
-    field_of_study: str | None = None,
-    education_level: str | None = None,
-    job_title_code: str | None = None,
-    grade_post: int | None = None,
-    step: int | None = None,
-    successful_evaluation: str | None = None,
-    field_match_code: str | None = None,
-    department_id: int | None = None,
+    filters: Annotated[EmployeeFilters, Depends(get_employee_filters)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     sort_by: EmployeeSortField = "id",
     sort_order: SortOrder = "asc",
 ) -> EmployeeListResponse:
-    filters = EmployeeFilters(
-        search=search,
-        name=name,
-        father_name=father_name,
-        school_workplace=school_workplace,
-        city_district=city_district,
-        field_of_study=field_of_study,
-        education_level=education_level,
-        job_title_code=job_title_code,
-        grade_post=grade_post,
-        step=step,
-        successful_evaluation=successful_evaluation,
-        field_match_code=field_match_code,
-        department_id=department_id,
-    )
     return service.list_employees(
         db,
         filters=filters,
@@ -69,6 +45,21 @@ def list_employees(
         sort_order=sort_order,
         page=page,
         page_size=page_size,
+    )
+
+
+@router.get("/export")
+def export_employees(
+    db: DbSession,
+    filters: Annotated[EmployeeFilters, Depends(get_employee_filters)],
+    sort_by: EmployeeSortField = "id",
+    sort_order: SortOrder = "asc",
+) -> Response:
+    return excel_export_service.export_employees(
+        db,
+        filters=filters,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
 
 

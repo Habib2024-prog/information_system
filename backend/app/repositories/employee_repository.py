@@ -52,6 +52,19 @@ class EmployeeRepository:
         )
         return db.scalar(statement)
 
+    def list_active_for_export(
+        self,
+        db: Session,
+        *,
+        filters: EmployeeFilters,
+        sort_by: str,
+        sort_order: str,
+    ) -> list[Employee]:
+        statement = self._apply_filters(select(Employee), filters)
+        sort_column = getattr(Employee, sort_by)
+        order_expression = sort_column.desc() if sort_order == "desc" else sort_column.asc()
+        return list(db.scalars(statement.order_by(order_expression)))
+
     def create(self, db: Session, values: dict[str, object]) -> Employee:
         employee = Employee(**values)
         db.add(employee)

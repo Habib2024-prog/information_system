@@ -4,6 +4,8 @@ from datetime import date, datetime, timezone
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session, joinedload
 
+from app.models.employee import Employee
+from app.models.scientific_member import ScientificMember
 from app.models.teacher_observation import TeacherObservation
 
 
@@ -63,6 +65,35 @@ class TeacherObservationRepository:
             )
         )
         return db.scalar(statement)
+
+    def list_active_for_export(
+        self,
+        db: Session,
+        *,
+        employee_id: int | None,
+        filters: TeacherObservationFilters,
+        sort_by: str,
+        sort_order: str,
+    ) -> list[tuple[TeacherObservation, Employee, ScientificMember]]:
+        statement = self._apply_filters(
+            select(TeacherObservation, Employee, ScientificMember)
+            .join(Employee, Employee.id == TeacherObservation.employee_id)
+            .join(
+                ScientificMember,
+                ScientificMember.id == TeacherObservation.observer_scientific_member_id,
+            )
+            .where(
+                Employee.deleted_at.is_(None),
+                ScientificMember.deleted_at.is_(None),
+            ),
+            filters,
+        )
+        if employee_id is not None:
+            statement = statement.where(TeacherObservation.employee_id == employee_id)
+
+        sort_column = getattr(TeacherObservation, sort_by)
+        order_expression = sort_column.desc() if sort_order == "desc" else sort_column.asc()
+        return list(db.execute(statement.order_by(order_expression)).tuples())
 
     def create(self, db: Session, values: dict[str, object]) -> TeacherObservation:
         observation = TeacherObservation(**values)

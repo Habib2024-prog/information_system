@@ -21,3 +21,9 @@ def get_amir_final_result_code(total_score: Decimal) -> str | None:
     if Decimal("9") <= total_score <= Decimal("12"):
         return AMIR_FINAL_RESULT_MASTERY
     return None
+
+
+def get_amir_final_result_display_label(code: str | None) -> str | None:
+    if code is None:
+        return None
+    return AMIR_FINAL_RESULT_LABELS.get(code, "نامشخص")

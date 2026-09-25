@@ -97,6 +97,23 @@ class AmirObservationService:
             raise AmirObservationNotFoundError
         return self._to_read(observation)
 
+    def list_observations_for_export(
+        self,
+        db: Session,
+        *,
+        employee_id: int | None,
+        filters: AmirObservationFilters,
+        sort_by: str,
+        sort_order: str,
+    ) -> list[tuple[AmirObservation, Employee, ScientificMember]]:
+        return self.repository.list_active_for_export(
+            db,
+            employee_id=employee_id,
+            filters=filters,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
+
     def create_observation(
         self,
         db: Session,

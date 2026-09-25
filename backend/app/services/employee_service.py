@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
@@ -30,6 +31,10 @@ class InvalidDepartmentIdsError(Exception):
 
 
 class RequiredDepartmentUnavailableError(Exception):
+    pass
+
+
+class DepartmentNotFoundForEmployeeExportError(Exception):
     pass
 
 
@@ -72,6 +77,40 @@ class EmployeeService:
         if employee is None:
             raise EmployeeNotFoundError
         return self._to_read(db, employee)
+
+    def list_employees_for_export(
+        self,
+        db: Session,
+        *,
+        filters: EmployeeFilters,
+        sort_by: str,
+        sort_order: str,
+    ) -> list[EmployeeRead]:
+        employees = self.employee_repository.list_active_for_export(
+            db,
+            filters=filters,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
+        return [self._to_read(db, employee) for employee in employees]
+
+    def list_department_employees_for_export(
+        self,
+        db: Session,
+        *,
+        department_id: int,
+        filters: EmployeeFilters,
+        sort_by: str,
+        sort_order: str,
+    ) -> list[EmployeeRead]:
+        if self.department_repository.get_by_id(db, department_id) is None:
+            raise DepartmentNotFoundForEmployeeExportError
+        return self.list_employees_for_export(
+            db,
+            filters=replace(filters, department_id=department_id),
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
 
     def create_employee(self, db: Session, data: EmployeeCreate) -> EmployeeRead:
         department_ids = self._resolve_department_ids(

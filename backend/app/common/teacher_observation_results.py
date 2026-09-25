@@ -21,3 +21,9 @@ def get_teacher_final_result_code(total_score: Decimal) -> str | None:
     if Decimal("15") <= total_score <= Decimal("18"):
         return TEACHER_FINAL_RESULT_MASTERY
     return None
+
+
+def get_teacher_final_result_display_label(code: str | None) -> str | None:
+    if code is None:
+        return None
+    return TEACHER_FINAL_RESULT_LABELS.get(code, "نامشخص")

@@ -41,6 +41,19 @@ class SchoolRepository:
         statement = select(School).where(School.id == school_id, School.deleted_at.is_(None))
         return db.scalar(statement)
 
+    def list_active_for_export(
+        self,
+        db: Session,
+        *,
+        filters: SchoolFilters,
+        sort_by: str,
+        sort_order: str,
+    ) -> list[School]:
+        statement = self._apply_filters(select(School), filters)
+        sort_column = getattr(School, sort_by)
+        order_expression = sort_column.desc() if sort_order == "desc" else sort_column.asc()
+        return list(db.scalars(statement.order_by(order_expression)))
+
     def get_by_code(
         self,
         db: Session,

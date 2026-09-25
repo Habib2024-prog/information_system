@@ -68,6 +68,22 @@ class SchoolService:
         school = self._require_active_school(db, school_id)
         return self._to_read(db, school)
 
+    def list_schools_for_export(
+        self,
+        db: Session,
+        *,
+        filters: SchoolFilters,
+        sort_by: str,
+        sort_order: str,
+    ) -> list[SchoolRead]:
+        schools = self.repository.list_active_for_export(
+            db,
+            filters=filters,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
+        return [self._to_read(db, school) for school in schools]
+
     def list_grade_statistics(self, db: Session, school_id: int) -> list[SchoolGradeStatisticRead]:
         self._require_active_school(db, school_id)
         return [

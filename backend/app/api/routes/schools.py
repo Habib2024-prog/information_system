@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_school_filters
 from app.db.session import get_db
 from app.repositories.school_repository import SchoolFilters
 from app.schemas.school import (
@@ -21,22 +22,19 @@ from app.services.school_service import (
     UndefinedGenderTypeCodeError,
     UndefinedSchoolTypeCodeError,
 )
+from app.services.excel_export_service import ExcelExportService
 
 
 router = APIRouter(prefix="/schools", tags=["مکاتب"])
 DbSession = Annotated[Session, Depends(get_db)]
 service = SchoolService()
+excel_export_service = ExcelExportService(school_service=service)
 
 
 @router.get("", response_model=SchoolListResponse)
 def list_schools(
     db: DbSession,
-    search: str | None = None,
-    school_name: str | None = None,
-    school_code: str | None = None,
-    school_type_code: str | None = None,
-    gender_type_code: str | None = None,
-    school_formation: str | None = None,
+    filters: Annotated[SchoolFilters, Depends(get_school_filters)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     sort_by: SchoolSortField = "id",
@@ -44,18 +42,26 @@ def list_schools(
 ) -> SchoolListResponse:
     return service.list_schools(
         db,
-        filters=SchoolFilters(
-            search=search,
-            school_name=school_name,
-            school_code=school_code,
-            school_type_code=school_type_code,
-            gender_type_code=gender_type_code,
-            school_formation=school_formation,
-        ),
+        filters=filters,
         sort_by=sort_by,
         sort_order=sort_order,
         page=page,
         page_size=page_size,
+    )
+
+
+@router.get("/export")
+def export_schools(
+    db: DbSession,
+    filters: Annotated[SchoolFilters, Depends(get_school_filters)],
+    sort_by: SchoolSortField = "id",
+    sort_order: SortOrder = "asc",
+) -> Response:
+    return excel_export_service.export_schools(
+        db,
+        filters=filters,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
 
 

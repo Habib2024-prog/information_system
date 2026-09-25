@@ -82,6 +82,29 @@ class ScientificMemberService:
             raise ScientificMemberNotFoundError
         return self._to_read(db, member)
 
+    def list_members_for_export(
+        self,
+        db: Session,
+        *,
+        filters: ScientificMemberFilters,
+        sort_by: str,
+        sort_order: str,
+    ) -> list[ScientificMemberRead]:
+        members = self.repository.list_active_for_export(
+            db,
+            filters=filters,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
+        observation_counts = self.observation_repository.count_active_by_member_ids(
+            db,
+            [member.id for member in members],
+        )
+        return [
+            self._to_read(db, member, observation_count=observation_counts[member.id])
+            for member in members
+        ]
+
     def list_observation_history(
         self,
         db: Session,

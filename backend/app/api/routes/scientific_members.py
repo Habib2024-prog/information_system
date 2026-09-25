@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_scientific_member_filters
 from app.db.session import get_db
 from app.repositories.scientific_member_repository import ScientificMemberFilters
 from app.repositories.scientific_member_observation_repository import (
@@ -24,37 +25,24 @@ from app.services.scientific_member_service import (
     ScientificMemberNotFoundError,
     ScientificMemberService,
 )
+from app.services.excel_export_service import ExcelExportService
 
 
 router = APIRouter(prefix="/scientific-members", tags=["اعضای علمی"])
 DbSession = Annotated[Session, Depends(get_db)]
 service = ScientificMemberService()
+excel_export_service = ExcelExportService(scientific_member_service=service)
 
 
 @router.get("", response_model=ScientificMemberListResponse)
 def list_members(
     db: DbSession,
-    search: str | None = None,
-    name: str | None = None,
-    surname: str | None = None,
-    father_name: str | None = None,
-    phone_number: str | None = None,
-    academic_rank: str | None = None,
-    department_id: int | None = None,
+    filters: Annotated[ScientificMemberFilters, Depends(get_scientific_member_filters)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     sort_by: ScientificMemberSortField = "id",
     sort_order: SortOrder = "asc",
 ) -> ScientificMemberListResponse:
-    filters = ScientificMemberFilters(
-        search=search,
-        name=name,
-        surname=surname,
-        father_name=father_name,
-        phone_number=phone_number,
-        academic_rank=academic_rank,
-        department_id=department_id,
-    )
     return service.list_members(
         db,
         filters=filters,
@@ -63,6 +51,35 @@ def list_members(
         page=page,
         page_size=page_size,
     )
+
+
+@router.get("/export")
+def export_members(
+    db: DbSession,
+    filters: Annotated[ScientificMemberFilters, Depends(get_scientific_member_filters)],
+    sort_by: ScientificMemberSortField = "id",
+    sort_order: SortOrder = "asc",
+) -> Response:
+    return excel_export_service.export_scientific_members(
+        db,
+        filters=filters,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+
+
+@router.get("/{scientific_member_id}/observations/export")
+def export_observation_history(
+    scientific_member_id: int,
+    db: DbSession,
+) -> Response:
+    try:
+        return excel_export_service.export_scientific_member_observation_history(
+            db,
+            scientific_member_id=scientific_member_id,
+        )
+    except ScientificMemberNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="عضو علمی یافت نشد.") from error
 
 
 @router.get("/{scientific_member_id}/observations", response_model=ScientificMemberObservationHistoryResponse)
