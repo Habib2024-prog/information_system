@@ -1,29 +1,47 @@
+@import "@fontsource/vazirmatn/400.css";
+@import "@fontsource/vazirmatn/500.css";
+@import "@fontsource/vazirmatn/600.css";
+@import "@fontsource/vazirmatn/700.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    font-family: Vazirmatn, "Noto Sans Arabic", Tahoma, Arial, sans-serif;
-    color: #172033;
-    background: #f8fafc;
+    --background: 210 40% 98%;
+    --surface: 0 0% 100%;
+    --surface-muted: 210 40% 96%;
+    --border: 214 32% 91%;
+    --text-primary: 222 47% 13%;
+    --text-secondary: 215 16% 47%;
+    --primary: 214 63% 32%;
+    --primary-hover: 214 68% 26%;
+    --primary-soft: 213 55% 94%;
+    --primary-foreground: 0 0% 100%;
+    --success: 152 47% 34%;
+    --warning: 35 80% 38%;
+    --danger: 0 67% 43%;
+    font-family: Vazirmatn, Tahoma, Arial, sans-serif;
+    color: hsl(var(--text-primary));
+    background: hsl(var(--background));
     font-synthesis: none;
   }
 
   * {
-    border-color: #e2e8f0;
+    border-color: hsl(var(--border));
   }
 
   html {
     min-width: 320px;
-    background: #f8fafc;
+    background: hsl(var(--background));
   }
 
   body {
     min-width: 320px;
     min-height: 100vh;
     margin: 0;
-    background: #f8fafc;
+    background: hsl(var(--background));
   }
 
   button,
@@ -34,7 +52,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid #1d4f91;
+    outline: 2px solid hsl(var(--primary));
     outline-offset: 2px;
   }
 }
@@ -47,10 +65,34 @@
 
 @layer components {
   .input {
-    @apply h-10 w-full rounded-lg border border-line bg-white px-3 text-sm text-ink placeholder:text-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100;
+    @apply motion-safe-transition h-10 w-full rounded-lg border border-line bg-white px-3 text-sm text-ink placeholder:text-slate-400 focus:border-accent focus:ring-2 focus:ring-accent/15 disabled:cursor-not-allowed disabled:bg-slate-100;
   }
 
   .textarea {
-    @apply min-h-28 w-full resize-y rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-slate-400;
+    @apply motion-safe-transition min-h-28 w-full resize-y rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-slate-400 focus:border-accent focus:ring-2 focus:ring-accent/15;
+  }
+
+  .data-table {
+    @apply min-w-full divide-y divide-line text-right text-sm;
+  }
+
+  .data-table thead {
+    @apply bg-slate-50 text-muted;
+  }
+
+  .data-table th {
+    @apply whitespace-nowrap px-4 py-3 text-sm font-semibold;
+  }
+
+  .data-table td {
+    @apply px-4 py-3 align-middle;
+  }
+
+  .data-table tbody {
+    @apply divide-y divide-line bg-white;
+  }
+
+  .data-table tbody tr {
+    @apply motion-safe-transition hover:bg-slate-50/80;
   }
 }

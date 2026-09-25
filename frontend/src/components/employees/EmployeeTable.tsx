@@ -25,7 +25,7 @@ export function EmployeeTable({ employees, sortBy, sortOrder, onSort, onView, on
   return (
     <>
       <DataTableShell className="hidden lg:block">
-        <table className="min-w-full divide-y divide-line text-right text-sm">
+        <table className="data-table">
           <thead className="bg-slate-50 text-muted"><tr>
             <th className="whitespace-nowrap px-4 py-3">{heading("شماره", "id")}</th>
             <th className="whitespace-nowrap px-4 py-3">{heading("اسم", "name")}</th>

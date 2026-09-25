@@ -5,18 +5,18 @@ export default {
   theme: {
     extend: {
       boxShadow: {
-        panel: "0 12px 30px -18px rgb(15 23 42 / 0.22)",
-        soft: "0 5px 16px -10px rgb(15 23 42 / 0.18)",
+        panel: "0 18px 38px -26px rgb(15 23 42 / 0.26)",
+        soft: "0 6px 18px -14px rgb(15 23 42 / 0.2)",
       },
       colors: {
-        ink: "#172033",
-        muted: "#64748b",
-        line: "#e2e8f0",
-        canvas: "#f8fafc",
+        ink: "hsl(var(--text-primary) / <alpha-value>)",
+        muted: "hsl(var(--text-secondary) / <alpha-value>)",
+        line: "hsl(var(--border) / <alpha-value>)",
+        canvas: "hsl(var(--background) / <alpha-value>)",
         accent: {
-          DEFAULT: "#1d4f91",
-          foreground: "#ffffff",
-          soft: "#eaf1fa",
+          DEFAULT: "hsl(var(--primary) / <alpha-value>)",
+          foreground: "hsl(var(--primary-foreground) / <alpha-value>)",
+          soft: "hsl(var(--primary-soft) / <alpha-value>)",
         },
       },
     },

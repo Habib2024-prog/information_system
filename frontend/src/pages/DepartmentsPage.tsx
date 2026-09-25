@@ -8,6 +8,7 @@ import { ObservationFormDialog, type ObservationKind } from "../components/depar
 import { EmployeeDetailsDialog } from "../components/employees/EmployeeDetailsDialog";
 import { EmployeeFilters as EmployeeFiltersPanel } from "../components/employees/EmployeeFilters";
 import { PageHeader } from "../components/shared/PageHeader";
+import { PaginationControls } from "../components/shared/PaginationControls";
 import { EmptyState, ErrorState, LoadingState } from "../components/shared/states";
 import { Button } from "../components/ui/button";
 import { useToast } from "../components/ui/toast";
@@ -125,6 +126,5 @@ function RetryPanel({ title, description, onRetry }: { title: string; descriptio
 }
 
 function Pagination({ page, pageSize, totalPages, total, onPageChange, onPageSizeChange }: { page: number; pageSize: number; totalPages: number; total: number; onPageChange: (page: number) => void; onPageSizeChange: (pageSize: number) => void }) {
-  if (!total) return null;
-  return <div className="flex flex-col gap-3 rounded-xl border border-line bg-white px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"><div className="text-muted">صفحهٔ {page.toLocaleString("fa-AF")} از {totalPages.toLocaleString("fa-AF")}</div><div className="flex items-center gap-2"><label className="flex items-center gap-2 text-muted">تعداد در هر صفحه<select className="h-9 rounded-lg border border-line bg-white px-2 text-ink" value={pageSize} onChange={(event) => onPageSizeChange(Number(event.target.value))}>{[10, 20, 50, 100].map((size) => <option key={size} value={size}>{size.toLocaleString("fa-AF")}</option>)}</select></label><Button className="h-9" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>قبلی</Button><Button className="h-9" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>بعدی</Button></div></div>;
+  return <PaginationControls page={page} pageSize={pageSize} totalPages={totalPages} total={total} onPageChange={onPageChange} onPageSizeChange={onPageSizeChange} />;
 }

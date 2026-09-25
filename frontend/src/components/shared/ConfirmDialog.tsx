@@ -25,7 +25,7 @@ export function ConfirmDialog({ trigger, title, description, confirmLabel, onCon
               <Button variant="secondary">انصراف</Button>
             </Dialog.Close>
             <Dialog.Close asChild>
-              <Button variant="primary" onClick={onConfirm}>{confirmLabel}</Button>
+              <Button variant="danger" onClick={onConfirm}>{confirmLabel}</Button>
             </Dialog.Close>
           </div>
         </Dialog.Content>
