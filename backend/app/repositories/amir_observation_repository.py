@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.employee import Employee
@@ -11,6 +11,9 @@ from app.models.amir_observation import AmirObservation
 
 @dataclass(frozen=True)
 class AmirObservationFilters:
+    search: str | None = None
+    employee_id: int | None = None
+    employee_job_title_code: str | None = None
     observation_date_from: date | None = None
     observation_date_to: date | None = None
     subject: str | None = None
@@ -19,6 +22,35 @@ class AmirObservationFilters:
 
 
 class AmirObservationRepository:
+    def list_active(
+        self,
+        db: Session,
+        *,
+        filters: AmirObservationFilters,
+        sort_by: str,
+        sort_order: str,
+        offset: int,
+        limit: int,
+    ) -> tuple[list[tuple[AmirObservation, Employee, ScientificMember]], int]:
+        statement = self._apply_global_filters(
+            self._apply_filters(
+                select(AmirObservation, Employee, ScientificMember)
+                .join(Employee, Employee.id == AmirObservation.employee_id)
+                .join(
+                    ScientificMember,
+                    ScientificMember.id == AmirObservation.observer_scientific_member_id,
+                )
+                .where(Employee.deleted_at.is_(None), ScientificMember.deleted_at.is_(None)),
+                filters,
+            ),
+            filters,
+        )
+        total = db.scalar(select(func.count()).select_from(statement.subquery())) or 0
+        sort_column = getattr(AmirObservation, sort_by)
+        order_expression = sort_column.desc() if sort_order == "desc" else sort_column.asc()
+        secondary_order = AmirObservation.id.desc() if sort_order == "desc" else AmirObservation.id.asc()
+        return list(db.execute(statement.order_by(order_expression, secondary_order).offset(offset).limit(limit)).tuples()), total
+
     def list_active_for_employee(
         self,
         db: Session,
@@ -75,7 +107,7 @@ class AmirObservationRepository:
         sort_by: str,
         sort_order: str,
     ) -> list[tuple[AmirObservation, Employee, ScientificMember]]:
-        statement = self._apply_filters(
+        statement = self._apply_global_filters(self._apply_filters(
             select(AmirObservation, Employee, ScientificMember)
             .join(Employee, Employee.id == AmirObservation.employee_id)
             .join(
@@ -87,13 +119,33 @@ class AmirObservationRepository:
                 ScientificMember.deleted_at.is_(None),
             ),
             filters,
-        )
+        ), filters)
         if employee_id is not None:
             statement = statement.where(AmirObservation.employee_id == employee_id)
 
         sort_column = getattr(AmirObservation, sort_by)
         order_expression = sort_column.desc() if sort_order == "desc" else sort_column.asc()
         return list(db.execute(statement.order_by(order_expression)).tuples())
+
+    @staticmethod
+    def _apply_global_filters(
+        statement: Select[tuple[AmirObservation, Employee, ScientificMember]],
+        filters: AmirObservationFilters,
+    ) -> Select[tuple[AmirObservation, Employee, ScientificMember]]:
+        if filters.employee_id is not None:
+            statement = statement.where(AmirObservation.employee_id == filters.employee_id)
+        if filters.employee_job_title_code is not None:
+            statement = statement.where(Employee.job_title_code == filters.employee_job_title_code)
+        if filters.search is not None:
+            term = f"%{filters.search}%"
+            statement = statement.where(
+                or_(
+                    Employee.name.ilike(term),
+                    Employee.father_name.ilike(term),
+                    AmirObservation.subject.ilike(term),
+                )
+            )
+        return statement
 
     def create(self, db: Session, values: dict[str, object]) -> AmirObservation:
         observation = AmirObservation(**values)

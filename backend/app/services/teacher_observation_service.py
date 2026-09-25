@@ -16,6 +16,8 @@ from app.repositories.teacher_observation_repository import (
 from app.schemas.teacher_observation import (
     ObserverBasicRead,
     TeacherObservationCreate,
+    TeacherObservationGlobalListItem,
+    TeacherObservationGlobalListResponse,
     TeacherObservationListItem,
     TeacherObservationListResponse,
     TeacherObservationRead,
@@ -75,6 +77,31 @@ class TeacherObservationService:
         )
         return TeacherObservationListResponse(
             items=[self._to_list_item(observation) for observation in observations],
+            total=total,
+            page=page,
+            page_size=page_size,
+        )
+
+    def list_all_observations(
+        self,
+        db: Session,
+        *,
+        filters: TeacherObservationFilters,
+        sort_by: str,
+        sort_order: str,
+        page: int,
+        page_size: int,
+    ) -> TeacherObservationGlobalListResponse:
+        rows, total = self.repository.list_active(
+            db,
+            filters=filters,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            offset=(page - 1) * page_size,
+            limit=page_size,
+        )
+        return TeacherObservationGlobalListResponse(
+            items=[self._to_global_list_item(observation, employee, observer) for observation, employee, observer in rows],
             total=total,
             page=page,
             page_size=page_size,
@@ -227,6 +254,26 @@ class TeacherObservationService:
             observer=self._observer_to_read(observation.observer),
             total_score=observation.total_score,
             final_result_code=observation.final_result_code,
+        )
+
+    def _to_global_list_item(
+        self,
+        observation: TeacherObservation,
+        employee: Employee,
+        observer: ScientificMember,
+    ) -> TeacherObservationGlobalListItem:
+        return TeacherObservationGlobalListItem(
+            id=observation.id,
+            observation_date=observation.observation_date,
+            subject=observation.subject,
+            observer=self._observer_to_read(observer),
+            total_score=observation.total_score,
+            final_result_code=observation.final_result_code,
+            employee_id=employee.id,
+            employee_name=employee.name,
+            employee_father_name=employee.father_name,
+            employee_school_workplace=employee.school_workplace,
+            employee_job_title_code=employee.job_title_code,
         )
 
     def _to_read(self, observation: TeacherObservation) -> TeacherObservationRead:

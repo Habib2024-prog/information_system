@@ -61,6 +61,7 @@ function toQuery(params: Partial<EmployeeListParams>): string {
 
 export const getEmployees = (params: EmployeeListParams = { ...emptyEmployeeFilters, page: 1, page_size: 20, sort_by: "id", sort_order: "asc" }) =>
   apiGet<PaginatedResponse<Employee>>(`/api/employees${toQuery(params)}`);
+export const getEmployee = (id: number) => apiGet<Employee>(`/api/employees/${id}`);
 
 export const createEmployee = (payload: EmployeePayload) => apiRequest<Employee>("/api/employees", { method: "POST", body: JSON.stringify(payload) });
 export const updateEmployee = (id: number, payload: EmployeePayload) => apiRequest<Employee>(`/api/employees/${id}`, { method: "PUT", body: JSON.stringify(payload) });

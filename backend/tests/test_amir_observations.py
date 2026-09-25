@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
@@ -224,6 +225,47 @@ def test_rejects_scores_outside_allowed_range(client: TestClient, db_session: Se
     )
 
     assert below_response.status_code == 422
+    assert above_response.status_code == 422
+
+
+def test_amir_observation_validates_dates_and_score_precision(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    employee, observer = _eligible_employee_and_observer(client, db_session)
+    endpoint = f"/api/employees/{employee['id']}/amir-observations"
+
+    for index, score in enumerate(("0", "3", "2", "2.1", "2.10", "0.28", "2.25")):
+        response = client.post(
+            endpoint,
+            json=_observation_payload(
+                observer["id"],
+                observation_date=(date.today() - timedelta(days=index)).isoformat(),
+                responsibility_score=score,
+            ),
+        )
+        assert response.status_code == 201
+
+    future_response = client.post(
+        endpoint,
+        json=_observation_payload(observer["id"], observation_date=(date.today() + timedelta(days=1)).isoformat()),
+    )
+    precision_response = client.post(
+        endpoint,
+        json=_observation_payload(observer["id"], responsibility_score="1.555"),
+    )
+    negative_response = client.post(
+        endpoint,
+        json=_observation_payload(observer["id"], responsibility_score="-0.1"),
+    )
+    above_response = client.post(
+        endpoint,
+        json=_observation_payload(observer["id"], responsibility_score="3.01"),
+    )
+
+    assert future_response.status_code == 422
+    assert precision_response.status_code == 422
+    assert negative_response.status_code == 422
     assert above_response.status_code == 422
 
 

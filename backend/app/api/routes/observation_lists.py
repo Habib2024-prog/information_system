@@ -1,27 +1,34 @@
 from datetime import date
+
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.repositories.amir_observation_repository import AmirObservationFilters
 from app.repositories.teacher_observation_repository import TeacherObservationFilters
-from app.schemas.amir_observation import AmirObservationSortField, SortOrder as AmirSortOrder
+from app.schemas.amir_observation import (
+    AmirObservationGlobalListResponse,
+    AmirObservationSortField,
+    SortOrder as AmirSortOrder,
+)
 from app.schemas.teacher_observation import (
     SortOrder as TeacherSortOrder,
+    TeacherObservationGlobalListResponse,
     TeacherObservationSortField,
 )
-from app.services.excel_export_service import ExcelExportService
+from app.services.amir_observation_service import AmirObservationService
+from app.services.teacher_observation_service import TeacherObservationService
 
-
-router = APIRouter(tags=["صدور اکسل مشاهدات"])
+router = APIRouter(tags=["observations"])
 DbSession = Annotated[Session, Depends(get_db)]
-excel_export_service = ExcelExportService()
+teacher_service = TeacherObservationService()
+amir_service = AmirObservationService()
 
 
-@router.get("/teacher-observations/export")
-def export_teacher_observations(
+@router.get("/teacher-observations", response_model=TeacherObservationGlobalListResponse)
+def list_teacher_observations(
     db: DbSession,
     search: str | None = None,
     employee_id: int | None = None,
@@ -30,12 +37,13 @@ def export_teacher_observations(
     observation_date_to: date | None = None,
     subject: str | None = None,
     final_result_code: str | None = None,
-    sort_by: TeacherObservationSortField = "id",
-    sort_order: TeacherSortOrder = "asc",
-) -> Response:
-    return excel_export_service.export_teacher_observations(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    sort_by: TeacherObservationSortField = "observation_date",
+    sort_order: TeacherSortOrder = "desc",
+) -> TeacherObservationGlobalListResponse:
+    return teacher_service.list_all_observations(
         db,
-        employee_id=employee_id,
         filters=TeacherObservationFilters(
             search=search,
             employee_id=employee_id,
@@ -47,11 +55,13 @@ def export_teacher_observations(
         ),
         sort_by=sort_by,
         sort_order=sort_order,
+        page=page,
+        page_size=page_size,
     )
 
 
-@router.get("/amir-observations/export")
-def export_amir_observations(
+@router.get("/amir-observations", response_model=AmirObservationGlobalListResponse)
+def list_amir_observations(
     db: DbSession,
     search: str | None = None,
     employee_id: int | None = None,
@@ -61,12 +71,13 @@ def export_amir_observations(
     observation_date_to: date | None = None,
     subject: str | None = None,
     final_result_code: str | None = None,
-    sort_by: AmirObservationSortField = "id",
-    sort_order: AmirSortOrder = "asc",
-) -> Response:
-    return excel_export_service.export_amir_observations(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    sort_by: AmirObservationSortField = "observation_date",
+    sort_order: AmirSortOrder = "desc",
+) -> AmirObservationGlobalListResponse:
+    return amir_service.list_all_observations(
         db,
-        employee_id=employee_id,
         filters=AmirObservationFilters(
             search=search,
             employee_id=employee_id,
@@ -79,4 +90,6 @@ def export_amir_observations(
         ),
         sort_by=sort_by,
         sort_order=sort_order,
+        page=page,
+        page_size=page_size,
     )

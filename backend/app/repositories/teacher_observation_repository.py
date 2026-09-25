@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.employee import Employee
@@ -11,6 +11,8 @@ from app.models.teacher_observation import TeacherObservation
 
 @dataclass(frozen=True)
 class TeacherObservationFilters:
+    search: str | None = None
+    employee_id: int | None = None
     observation_date_from: date | None = None
     observation_date_to: date | None = None
     subject: str | None = None
@@ -19,6 +21,35 @@ class TeacherObservationFilters:
 
 
 class TeacherObservationRepository:
+    def list_active(
+        self,
+        db: Session,
+        *,
+        filters: TeacherObservationFilters,
+        sort_by: str,
+        sort_order: str,
+        offset: int,
+        limit: int,
+    ) -> tuple[list[tuple[TeacherObservation, Employee, ScientificMember]], int]:
+        statement = self._apply_global_filters(
+            self._apply_filters(
+                select(TeacherObservation, Employee, ScientificMember)
+                .join(Employee, Employee.id == TeacherObservation.employee_id)
+                .join(
+                    ScientificMember,
+                    ScientificMember.id == TeacherObservation.observer_scientific_member_id,
+                )
+                .where(Employee.deleted_at.is_(None), ScientificMember.deleted_at.is_(None)),
+                filters,
+            ),
+            filters,
+        )
+        total = db.scalar(select(func.count()).select_from(statement.subquery())) or 0
+        sort_column = getattr(TeacherObservation, sort_by)
+        order_expression = sort_column.desc() if sort_order == "desc" else sort_column.asc()
+        secondary_order = TeacherObservation.id.desc() if sort_order == "desc" else TeacherObservation.id.asc()
+        return list(db.execute(statement.order_by(order_expression, secondary_order).offset(offset).limit(limit)).tuples()), total
+
     def list_active_for_employee(
         self,
         db: Session,
@@ -75,7 +106,7 @@ class TeacherObservationRepository:
         sort_by: str,
         sort_order: str,
     ) -> list[tuple[TeacherObservation, Employee, ScientificMember]]:
-        statement = self._apply_filters(
+        statement = self._apply_global_filters(self._apply_filters(
             select(TeacherObservation, Employee, ScientificMember)
             .join(Employee, Employee.id == TeacherObservation.employee_id)
             .join(
@@ -87,13 +118,31 @@ class TeacherObservationRepository:
                 ScientificMember.deleted_at.is_(None),
             ),
             filters,
-        )
+        ), filters)
         if employee_id is not None:
             statement = statement.where(TeacherObservation.employee_id == employee_id)
 
         sort_column = getattr(TeacherObservation, sort_by)
         order_expression = sort_column.desc() if sort_order == "desc" else sort_column.asc()
         return list(db.execute(statement.order_by(order_expression)).tuples())
+
+    @staticmethod
+    def _apply_global_filters(
+        statement: Select[tuple[TeacherObservation, Employee, ScientificMember]],
+        filters: TeacherObservationFilters,
+    ) -> Select[tuple[TeacherObservation, Employee, ScientificMember]]:
+        if filters.employee_id is not None:
+            statement = statement.where(TeacherObservation.employee_id == filters.employee_id)
+        if filters.search is not None:
+            term = f"%{filters.search}%"
+            statement = statement.where(
+                or_(
+                    Employee.name.ilike(term),
+                    Employee.father_name.ilike(term),
+                    TeacherObservation.subject.ilike(term),
+                )
+            )
+        return statement
 
     def create(self, db: Session, values: dict[str, object]) -> TeacherObservation:
         observation = TeacherObservation(**values)

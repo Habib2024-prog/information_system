@@ -4,7 +4,8 @@ import { DashboardPage } from "../pages/DashboardPage";
 import { DepartmentsPage } from "../pages/DepartmentsPage";
 import { EmployeesPage } from "../pages/EmployeesPage";
 import { ScientificMembersPage } from "../pages/ScientificMembersPage";
-import { ObservationsPage, SchoolsPage } from "../pages/ModulePages";
+import { SchoolsPage } from "../pages/ModulePages";
+import { ObservationsPage } from "../pages/ObservationsPage";
 
 export function AppRoutes() {
   return (
