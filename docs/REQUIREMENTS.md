@@ -233,6 +233,22 @@ The Schools module must support:
 - Filtering
 - Excel export
 
+School grade statistics requirements:
+
+- Each School must store student statistics in separate rows for grades 1 through
+  12; the School table must not use repeated per-grade columns.
+- Each grade-statistics row includes grade number, enrolled count, present
+  count, male count, and female count.
+- The UI must clearly display these four counts for every available grade from
+  **صنف ۱** through **صنف ۱۲**.
+- Grade number must be from 1 through 12 and all counts must be non-negative.
+- Present count must not exceed enrolled count.
+- The system must allow one active grade-statistics row per School and grade.
+- The system must not require male count plus female count to equal enrolled
+  count unless that rule is later approved explicitly.
+- School details and future complete School exports must include all available
+  grade statistics.
+
 ### 2.9 Filtering
 
 - Filtering must be performed server-side.
@@ -261,6 +277,11 @@ Export requirements:
   visible in a summary list table.
 - If 1,000 records exist but active filters return 40, the Excel file must
   contain those 40 matching records and all applicable fields.
+- School exports use one column for each grade from 1 through 12. A populated
+  grade cell contains enrolled, present, male, and female counts on separate
+  lines. When an active grade-statistics row has not been recorded for a
+  School, that grade cell is blank; blank cells do not represent inferred
+  student statistics.
 
 ### 2.11 UI list and detail behavior
 

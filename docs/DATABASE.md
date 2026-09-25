@@ -420,7 +420,7 @@ without repeating the School's own fields.
 | `school_id` | `BIGINT` | Yes | none | Foreign key to `schools.id` |
 | `grade_number` | `SMALLINT` | Yes | none | `CHECK (grade_number BETWEEN 1 AND 12)` |
 | `enrolled_count` | `INTEGER` | Yes | `0` | `CHECK (enrolled_count >= 0)` |
-| `present_count` | `INTEGER` | Yes | `0` | `CHECK (present_count >= 0)` |
+| `present_count` | `INTEGER` | Yes | `0` | `CHECK (present_count >= 0 AND present_count <= enrolled_count)` |
 | `female_count` | `INTEGER` | Yes | `0` | `CHECK (female_count >= 0)` |
 | `male_count` | `INTEGER` | Yes | `0` | `CHECK (male_count >= 0)` |
 | `created_at` | `TIMESTAMPTZ` | Yes | `CURRENT_TIMESTAMP` | Creation timestamp |
@@ -433,8 +433,13 @@ and grade statistics cannot exist without their School.
 **Foreign keys:** `school_id REFERENCES schools(id)`. Hard deletion must be
 restricted; ordinary removal uses the soft-delete marker.
 
-**Unique constraints:** `UNIQUE (school_id, grade_number)`, which ensures at
-most one stored statistics record for a School and grade.
+**Unique constraints:** Partial unique index on `(school_id, grade_number)`
+where `deleted_at IS NULL`, which ensures one active statistics record for a
+School and grade while preserving soft-deleted history.
+
+**Count rule:** `present_count` must not exceed `enrolled_count`. The schema
+does not constrain `male_count + female_count = enrolled_count`; that equality
+has not been approved as a business rule.
 
 **Indexes:** The unique constraint indexes `(school_id, grade_number)` and
 supports school lookup. Add a B-tree index on `grade_number` for cross-school
