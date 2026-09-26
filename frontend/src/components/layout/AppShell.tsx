@@ -12,11 +12,11 @@ export function AppShell({ children }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="min-h-screen bg-canvas">
+    <div className="min-h-screen bg-canvas text-ink">
       <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed((value) => !value)} />
       <main className={cn("min-h-screen", collapsed ? "lg:mr-[84px]" : "lg:mr-72", "motion-safe-transition")}>
         <AppHeader />
-        <div className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">{children}</div>
+        <div className="mx-auto max-w-[1540px] p-4 sm:p-6 lg:p-7 xl:p-8">{children}</div>
       </main>
     </div>
   );

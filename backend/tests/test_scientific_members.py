@@ -100,6 +100,22 @@ def test_update_scientific_member(client: TestClient, db_session: Session) -> No
     assert body["department"]["code"] == "mathematics"
 
 
+def test_scientific_member_accepts_arbitrary_academic_rank_text(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    departments = _seed_departments(db_session)
+    academic_rank = "عضو علمی ارشد - متن دلخواه"
+
+    created = client.post(
+        "/api/scientific-members",
+        json=_payload(departments["science"].id, academic_rank=academic_rank),
+    )
+
+    assert created.status_code == 201
+    assert created.json()["academic_rank"] == academic_rank
+
+
 def test_soft_delete_scientific_member(client: TestClient, db_session: Session) -> None:
     departments = _seed_departments(db_session)
     created = _create_member(client, departments["science"].id)

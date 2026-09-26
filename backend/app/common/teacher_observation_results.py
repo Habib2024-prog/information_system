@@ -14,11 +14,12 @@ TEACHER_FINAL_RESULT_LABELS: Final[dict[str, str]] = {
 
 
 def get_teacher_final_result_code(total_score: Decimal) -> str | None:
-    if Decimal("1") <= total_score <= Decimal("10"):
+    """Classify an exact, unrounded Teacher Observation total."""
+    if Decimal("1.00") <= total_score <= Decimal("10.99"):
         return TEACHER_FINAL_RESULT_NEEDS_IMPROVEMENT
-    if Decimal("11") <= total_score <= Decimal("14"):
+    if Decimal("11.00") <= total_score <= Decimal("14.99"):
         return TEACHER_FINAL_RESULT_HAS_CAPABILITY
-    if Decimal("15") <= total_score <= Decimal("18"):
+    if Decimal("15.00") <= total_score <= Decimal("18.00"):
         return TEACHER_FINAL_RESULT_MASTERY
     return None
 

@@ -65,8 +65,19 @@ class EmployeeService:
             offset=(page - 1) * page_size,
             limit=page_size,
         )
+        observation_counts = self.employee_repository.count_active_observations_by_employee_ids(
+            db,
+            [employee.id for employee in employees],
+        )
         return EmployeeListResponse(
-            items=[self._to_read(db, employee) for employee in employees],
+            items=[
+                self._to_read(
+                    db,
+                    employee,
+                    observation_count=observation_counts[employee.id],
+                )
+                for employee in employees
+            ],
             total=total,
             page=page,
             page_size=page_size,
@@ -92,7 +103,18 @@ class EmployeeService:
             sort_by=sort_by,
             sort_order=sort_order,
         )
-        return [self._to_read(db, employee) for employee in employees]
+        observation_counts = self.employee_repository.count_active_observations_by_employee_ids(
+            db,
+            [employee.id for employee in employees],
+        )
+        return [
+            self._to_read(
+                db,
+                employee,
+                observation_count=observation_counts[employee.id],
+            )
+            for employee in employees
+        ]
 
     def list_department_employees_for_export(
         self,
@@ -206,7 +228,18 @@ class EmployeeService:
 
         db.flush()
 
-    def _to_read(self, db: Session, employee: Employee) -> EmployeeRead:
+    def _to_read(
+        self,
+        db: Session,
+        employee: Employee,
+        *,
+        observation_count: int | None = None,
+    ) -> EmployeeRead:
+        if observation_count is None:
+            observation_count = self.employee_repository.count_active_observations_by_employee_ids(
+                db,
+                [employee.id],
+            )[employee.id]
         return EmployeeRead(
             id=employee.id,
             name=employee.name,
@@ -225,6 +258,7 @@ class EmployeeService:
             successful_evaluation=employee.successful_evaluation,
             field_match_code=employee.field_match_code,
             notes=employee.notes,
+            observation_count=observation_count,
             departments=[
                 self._department_to_read(department)
                 for department in self.employee_repository.list_active_departments(db, employee.id)

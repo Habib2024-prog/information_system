@@ -1,3 +1,6 @@
+from datetime import date, datetime, timezone
+from decimal import Decimal
+
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -6,6 +9,8 @@ from app.common.department_labels import DEPARTMENT_DISPLAY_LABELS
 from app.common.employee_codes import TEACHER_JOB_TITLE_CODE
 from app.models.department import Department
 from app.models.employee_department import EmployeeDepartment
+from app.models.amir_observation import AmirObservation
+from app.models.teacher_observation import TeacherObservation
 from app.services.department_service import DepartmentService
 
 
@@ -231,3 +236,61 @@ def test_combined_filters_use_and_logic(client: TestClient) -> None:
     assert response.status_code == 200
     assert response.json()["total"] == 1
     assert response.json()["items"][0]["city_district"] == "Kabul"
+
+
+def test_employee_observation_count_sums_active_observations(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    employee_id = client.post("/api/employees", json=employee_payload()).json()["id"]
+    teacher_observation = TeacherObservation(
+        employee_id=employee_id,
+        observer_scientific_member_id=1,
+        observation_date=date(2026, 9, 1),
+        observed_class="صنف دهم",
+        subject="ریاضی",
+        subject_knowledge_score=Decimal("2.00"),
+        lesson_plan_score=Decimal("2.00"),
+        classroom_management_score=Decimal("2.00"),
+        assessment_score=Decimal("2.00"),
+        professional_learning_score=Decimal("2.00"),
+        community_engagement_score=Decimal("2.00"),
+        total_score=Decimal("12.00"),
+    )
+    amir_observation = AmirObservation(
+        employee_id=employee_id,
+        observer_scientific_member_id=1,
+        observation_date=date(2026, 9, 2),
+        observed_class="صنف دهم",
+        subject="ریاضی",
+        responsibility_score=Decimal("2.00"),
+        professional_leadership_score=Decimal("2.00"),
+        community_relations_score=Decimal("2.00"),
+        professional_development_score=Decimal("2.00"),
+        total_score=Decimal("8.00"),
+    )
+    deleted_teacher_observation = TeacherObservation(
+        employee_id=employee_id,
+        observer_scientific_member_id=1,
+        observation_date=date(2026, 9, 3),
+        observed_class="صنف دهم",
+        subject="ریاضی",
+        subject_knowledge_score=Decimal("2.00"),
+        lesson_plan_score=Decimal("2.00"),
+        classroom_management_score=Decimal("2.00"),
+        assessment_score=Decimal("2.00"),
+        professional_learning_score=Decimal("2.00"),
+        community_engagement_score=Decimal("2.00"),
+        total_score=Decimal("12.00"),
+        deleted_at=datetime.now(timezone.utc),
+    )
+    db_session.add_all([teacher_observation, amir_observation, deleted_teacher_observation])
+    db_session.commit()
+
+    list_response = client.get("/api/employees")
+    detail_response = client.get(f"/api/employees/{employee_id}")
+
+    assert list_response.status_code == 200
+    assert list_response.json()["items"][0]["observation_count"] == 2
+    assert detail_response.status_code == 200
+    assert detail_response.json()["observation_count"] == 2

@@ -9,7 +9,7 @@ export function AppHeader() {
   const currentItem = navigationItems.find((item) => item.path === location.pathname);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-line bg-canvas/95 px-4 backdrop-blur sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-line/80 bg-white/70 px-4 shadow-[0_8px_24px_-24px_rgb(15_23_42_/_0.38)] backdrop-blur-xl sm:px-6 lg:px-8">
       <div className="flex min-w-0 items-center gap-3">
         <MobileNavigation />
         <div className="flex min-w-0 items-center gap-1.5 text-sm">

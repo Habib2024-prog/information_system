@@ -12,7 +12,7 @@ AMIR_OBSERVATION_ELIGIBLE_JOB_TITLE_CODES: Final[frozenset[str]] = frozenset(
 JOB_TITLE_DISPLAY_LABELS: Final[dict[str, str]] = {
     TEACHER_JOB_TITLE_CODE: "معلم",
     AMIR_JOB_TITLE_CODE: "آمر",
-    SENIOR_TEACHER_JOB_TITLE_CODE: "معلم ارشد",
+    SENIOR_TEACHER_JOB_TITLE_CODE: "سرمعلم",
 }
 
 FIELD_MATCH_DISPLAY_LABELS: Final[dict[str, str]] = {

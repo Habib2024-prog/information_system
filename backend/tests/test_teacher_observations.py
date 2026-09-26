@@ -284,7 +284,7 @@ def test_client_cannot_submit_server_controlled_result_fields(
     assert final_result_response.status_code == 422
 
 
-def test_undefined_decimal_total_gap_leaves_final_result_null(
+def test_decimal_total_in_approved_teacher_range_gets_final_result(
     client: TestClient,
     db_session: Session,
 ) -> None:
@@ -302,7 +302,7 @@ def test_undefined_decimal_total_gap_leaves_final_result_null(
     )
 
     assert Decimal(observation["total_score"]) == Decimal("10.50")
-    assert observation["final_result_code"] is None
+    assert observation["final_result_code"] == "needs_improvement"
 
 
 def test_update_recalculates_total_score(client: TestClient, db_session: Session) -> None:

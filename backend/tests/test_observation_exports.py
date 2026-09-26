@@ -5,7 +5,12 @@ from fastapi.testclient import TestClient
 from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
-from app.common.employee_codes import AMIR_JOB_TITLE_CODE, TEACHER_JOB_TITLE_CODE
+from app.common.employee_codes import (
+    AMIR_JOB_TITLE_CODE,
+    SENIOR_TEACHER_JOB_TITLE_CODE,
+    TEACHER_JOB_TITLE_CODE,
+    get_job_title_display_label,
+)
 from app.common.amir_competency_levels import format_amir_competency
 from app.common.teacher_competency_levels import format_teacher_competency
 from tests.test_scientific_member_observation_history import (
@@ -202,7 +207,6 @@ def test_amir_observation_export_has_separate_competencies_translated_result_and
         "روابط با جامعه",
         "انکشاف مسلکی",
     ]
-
     filtered_rows = _rows_by_header(
         _workbook(
             client.get(
@@ -213,6 +217,61 @@ def test_amir_observation_export_has_separate_competencies_translated_result_and
     )
     assert [row["شماره"] for row in filtered_rows] == [second["id"]]
 
+
+def test_senior_teacher_label_is_centralized_and_used_in_observation_export(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    member = _create_member(client, _science_department_id(db_session))
+    senior_teacher = _create_employee(client, SENIOR_TEACHER_JOB_TITLE_CODE)
+    _create_amir_observation(client, senior_teacher["id"], member["id"])
+
+    worksheet = _workbook(
+        client.get("/api/amir-observations/export", params={"employee_id": senior_teacher["id"]})
+    ).active
+    rows = _rows_by_header(worksheet)
+
+    assert get_job_title_display_label(SENIOR_TEACHER_JOB_TITLE_CODE) == "سرمعلم"
+    assert rows[0]["عنوان وظیفه"] == "سرمعلم"
+
+
+def test_observation_exports_use_persisted_decimal_range_results(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    member = _create_member(client, _science_department_id(db_session))
+    teacher = _create_employee(client, TEACHER_JOB_TITLE_CODE)
+    amir = _create_employee(client, AMIR_JOB_TITLE_CODE, phone_number="0700000099")
+    _create_teacher_observation(
+        client,
+        teacher["id"],
+        member["id"],
+        subject_knowledge_score="3.00",
+        lesson_plan_score="3.00",
+        classroom_management_score="3.00",
+        assessment_score="3.00",
+        professional_learning_score="2.80",
+        community_engagement_score="0.00",
+    )
+    _create_amir_observation(
+        client,
+        amir["id"],
+        member["id"],
+        responsibility_score="3.00",
+        professional_leadership_score="3.00",
+        community_relations_score="2.00",
+        professional_development_score="0.50",
+    )
+
+    teacher_rows = _rows_by_header(
+        _workbook(client.get("/api/teacher-observations/export", params={"employee_id": teacher["id"]})).active
+    )
+    amir_rows = _rows_by_header(
+        _workbook(client.get("/api/amir-observations/export", params={"employee_id": amir["id"]})).active
+    )
+
+    assert teacher_rows[0]["نتیجه نهایی"] == "دارای قابلیت"
+    assert amir_rows[0]["نتیجه نهایی"] == "قابلیت بکارگیری"
 
 def test_scientific_member_observation_history_export_uses_two_separate_sheets(
     client: TestClient,

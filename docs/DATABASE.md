@@ -271,14 +271,11 @@ the same employee, including on the same date unless a later rule forbids it.
 - B-tree index on `observation_date` for date filtering.
 - Index on `deleted_at` only when demonstrated useful.
 
-**Scoring constraints and pending behavior:** The bounded per-competency checks
-allow values from 0 through 3, the supplied score domain. No database constraint
-or generated expression maps a score to a result band, rounds scores, rounds
-totals, or fills decimal gaps. `total_score` and `final_result_code` are
-server-controlled values: clients must not set them directly. Their calculation
-will be implemented in the service layer only after decimal-boundary behavior
-is finalized. Decimal values or totals outside the explicit final-result ranges
-remain a pending clarification.
+**Scoring behavior:** The bounded per-competency checks allow values from 0
+through 3. `total_score` and `final_result_code` are server-controlled service
+layer values; clients must not set them directly. Final-result classification
+uses the exact calculated decimal total and never rounds it. Totals below
+`1.00`, or otherwise outside an approved range, remain `NULL`.
 The known display mappings, to be resolved through UI label mappings rather than
 database enum labels, are:
 
@@ -291,9 +288,9 @@ database enum labels, are:
 
 | Teacher total score | Display result |
 | --- | --- |
-| 1–10 | نیازمند بهبود |
-| 11–14 | دارای قابلیت |
-| 15–18 | تسلط بر قابلیت |
+| 1.00–10.99 | نیازمند بهبود |
+| 11.00–14.99 | دارای قابلیت |
+| 15.00–18.00 | تسلط بر قابلیت |
 
 **Soft-delete behavior:** Set `deleted_at`; do not remove historical observation
 data through ordinary deletion.
@@ -342,12 +339,11 @@ allowed.
 - B-tree index on `observation_date`.
 - Index on `deleted_at` only when demonstrated useful.
 
-**Scoring constraints and pending behavior:** Per-competency checks permit only
-0 through 3 when a score is supplied. No band mapping, rounding, gap handling,
-or total formula is encoded until the undefined decimal behavior is clarified.
-`total_score` and `final_result_code` are server-controlled values that clients
-must not set directly. Their calculation will be implemented in the service
-layer after the decimal-boundary rule is finalized.
+**Scoring behavior:** Per-competency checks permit only 0 through 3. The
+service layer controls `total_score` and `final_result_code`; clients cannot
+set them. Final-result classification uses the exact calculated decimal total
+without rounding. Totals below `1.00`, or otherwise outside an approved range,
+remain `NULL`.
 
 | Amir/Senior Teacher competency score | Display result |
 | --- | --- |
@@ -358,9 +354,9 @@ layer after the decimal-boundary rule is finalized.
 
 | Amir/Senior Teacher total score | Display result |
 | --- | --- |
-| 1–4 | قابلیت ابتدایی |
-| 5–8 | قابلیت بکارگیری |
-| 9–12 | مسلط بر قابلیت |
+| 1.00–4.99 | قابلیت ابتدایی |
+| 5.00–8.99 | قابلیت بکارگیری |
+| 9.00–12.00 | مسلط بر قابلیت |
 
 **Soft-delete behavior:** Set `deleted_at`; do not hard-delete ordinary
 historical observation data.
@@ -609,8 +605,7 @@ immutable; retention and access policy are future decisions.
   unfinalized business-input fields.
 - All unprovided columns from the Scientific Member, Teacher Observation,
   and Amir Observation Excel forms.
-- Observation decimal-gap behavior, decimal-total behavior, and rounding.
-  `total_score` and `final_result_code` are server-controlled and will be
-  calculated in the service layer after these boundary rules are finalized.
+- Observation competency decimal-gap behavior. Final-result totals are
+  server-controlled and use the approved exact-decimal ranges without rounding.
 - Authentication method, role codes, permissions, audit event vocabulary,
   retention, and access policy.

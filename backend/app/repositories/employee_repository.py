@@ -4,9 +4,11 @@ from datetime import datetime, timezone
 from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session
 
+from app.models.amir_observation import AmirObservation
 from app.models.department import Department
 from app.models.employee import Employee
 from app.models.employee_department import EmployeeDepartment
+from app.models.teacher_observation import TeacherObservation
 
 
 @dataclass(frozen=True)
@@ -27,6 +29,29 @@ class EmployeeFilters:
 
 
 class EmployeeRepository:
+    def count_active_observations_by_employee_ids(
+        self,
+        db: Session,
+        employee_ids: list[int],
+    ) -> dict[int, int]:
+        if not employee_ids:
+            return {}
+
+        counts = {employee_id: 0 for employee_id in employee_ids}
+        for observation_model in (TeacherObservation, AmirObservation):
+            statement = (
+                select(observation_model.employee_id, func.count())
+                .where(
+                    observation_model.employee_id.in_(employee_ids),
+                    observation_model.deleted_at.is_(None),
+                )
+                .group_by(observation_model.employee_id)
+            )
+            for employee_id, count in db.execute(statement):
+                counts[employee_id] = counts.get(employee_id, 0) + count
+
+        return counts
+
     def list_active(
         self,
         db: Session,

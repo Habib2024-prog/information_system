@@ -122,7 +122,7 @@ function DepartmentSummary({ department, employeeCount, isLoading, isExporting, 
 }
 
 function RetryPanel({ title, description, onRetry }: { title: string; description: string; onRetry: () => void | Promise<void> }) {
-  return <div className="space-y-3"><ErrorState title={title} description={description} /><Button onClick={() => void onRetry()}>کوشش دوباره</Button></div>;
+  return <ErrorState title={title} description={description} onRetry={() => void onRetry()} />;
 }
 
 function Pagination({ page, pageSize, totalPages, total, onPageChange, onPageSizeChange }: { page: number; pageSize: number; totalPages: number; total: number; onPageChange: (page: number) => void; onPageSizeChange: (pageSize: number) => void }) {

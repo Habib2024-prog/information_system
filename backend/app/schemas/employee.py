@@ -52,6 +52,7 @@ class EmployeeRead(BaseModel):
     successful_evaluation: str
     field_match_code: str
     notes: str | None
+    observation_count: int
     departments: list[DepartmentRead]
     created_at: datetime
     updated_at: datetime

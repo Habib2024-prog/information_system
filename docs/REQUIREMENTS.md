@@ -168,9 +168,12 @@ Teacher observation requirements:
 
 | Total score range | Display result |
 | --- | --- |
-| 1–10 | نیازمند بهبود |
-| 11–14 | دارای قابلیت |
-| 15–18 | تسلط بر قابلیت |
+| 1.00–10.99 | نیازمند بهبود |
+| 11.00–14.99 | دارای قابلیت |
+| 15.00–18.00 | تسلط بر قابلیت |
+
+The exact calculated decimal total is used without rounding. A total below
+`1.00` has no final result (`NULL` / تعیین نشده).
 
 ### 2.7 Amir/Senior Teacher Observations
 
@@ -214,9 +217,12 @@ Amir/Senior Teacher observation requirements:
 
 | Total score range | Display result |
 | --- | --- |
-| 1–4 | قابلیت ابتدایی |
-| 5–8 | قابلیت بکارگیری |
-| 9–12 | مسلط بر قابلیت |
+| 1.00–4.99 | قابلیت ابتدایی |
+| 5.00–8.99 | قابلیت بکارگیری |
+| 9.00–12.00 | مسلط بر قابلیت |
+
+The exact calculated decimal total is used without rounding. A total below
+`1.00` has no final result (`NULL` / تعیین نشده).
 
 ### 2.8 Schools
 
@@ -318,22 +324,18 @@ Export requirements:
 The following items are intentionally unresolved. They must be clarified before
 their missing behavior, validation, or schema details are implemented.
 
-### 3.1 Observation scoring gaps and decimal totals
+### 3.1 Observation competency scoring gaps
 
-No behavior may be invented for scores that fall into gaps between the stated
-ranges, or for decimal totals not covered by the stated final-result ranges.
+No behavior may be invented for competency scores that fall into gaps between
+the stated competency ranges.
 
 This includes, at minimum:
 
 - Teacher competency values between the stated category endpoints, if any occur.
-- Teacher final totals that are decimal or otherwise do not fall within the
-  explicit `1–10`, `11–14`, and `15–18` ranges.
 - Amir/Senior Teacher competency values between stated category endpoints, if
   any occur.
-- Amir/Senior Teacher final totals that are decimal or otherwise do not fall
-  within the explicit `1–4`, `5–8`, and `9–12` ranges.
 
-The required clarification is whether values/totals are restricted, rounded,
+The required clarification is whether such competency values are restricted,
 truncated, rejected, or mapped through another supplied rule. Until then, no
 such handling is defined.
 

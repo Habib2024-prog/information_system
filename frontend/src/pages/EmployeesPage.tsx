@@ -85,7 +85,7 @@ export function EmployeesPage() {
   const removeEmployee = async (employee: Employee) => {
     try {
       await deleteEmployee(employee.id);
-      showToast("کارمند از فهرست فعال حذف شد.");
+      showToast("کارمند حذف شد.");
       setReloadKey((key) => key + 1);
     } catch {
       showToast("حذف کارمند با مشکل روبه‌رو شد.", "error");
@@ -111,7 +111,7 @@ export function EmployeesPage() {
     <PageHeader title="جدول عمومی" description="مدیریت یکپارچهٔ اطلاعات کارمندان و دیپارتمنت‌های مربوطه." actions={<><Button disabled={isExporting} variant="secondary" onClick={() => void downloadExport()}>{isExporting ? "در حال آماده‌سازی" : <><Download size={17} />صدور اکسل</>}</Button><Button variant="primary" onClick={openCreate}><Plus size={18} />افزودن کارمند</Button></>} />
     <EmployeeFiltersPanel filters={filters} departments={departments} onChange={updateFilters} onClear={() => updateFilters({ ...emptyEmployeeFilters })} />
     <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between"><p className="text-muted">{data ? `${data.total.toLocaleString("fa-AF")} کارمند یافت شد` : ""}</p><p className="text-muted">برای مرتب‌سازی، عنوان ستون‌های جدول را انتخاب کنید.</p></div>
-    {isLoading ? <LoadingState title="در حال دریافت کارمندان" description="فهرست کارمندان در حال بارگذاری است." /> : loadError ? <div className="space-y-3"><ErrorState title="خطا در دریافت اطلاعات" description={loadError} /><Button onClick={() => void loadEmployees()}>کوشش دوباره</Button></div> : items.length === 0 ? <EmptyState title="کارمندی یافت نشد" description="فیلترها را تغییر دهید یا کارمند جدیدی ثبت کنید." /> : <><EmployeeTable employees={items} sortBy={sortBy} sortOrder={sortOrder} onSort={changeSort} onView={setDetailsEmployee} onEdit={openEdit} onDelete={(employee) => void removeEmployee(employee)} /><Pagination page={page} pageSize={pageSize} totalPages={totalPages} total={data?.total ?? 0} onPageChange={setPage} onPageSizeChange={(nextSize) => { setPageSize(nextSize); setPage(1); }} /></>}
+    {isLoading ? <LoadingState title="در حال دریافت کارمندان" description="فهرست کارمندان در حال بارگذاری است." /> : loadError ? <ErrorState title="خطا در دریافت اطلاعات" description={loadError} onRetry={() => void loadEmployees()} /> : items.length === 0 ? <EmptyState title="کارمندی یافت نشد" description="فیلترها را تغییر دهید یا کارمند جدیدی ثبت کنید." /> : <><EmployeeTable employees={items} sortBy={sortBy} sortOrder={sortOrder} onSort={changeSort} onView={setDetailsEmployee} onEdit={openEdit} onDelete={(employee) => void removeEmployee(employee)} /><Pagination page={page} pageSize={pageSize} totalPages={totalPages} total={data?.total ?? 0} onPageChange={setPage} onPageSizeChange={(nextSize) => { setPageSize(nextSize); setPage(1); }} /></>}
     <EmployeeFormDialog open={formOpen} onOpenChange={setFormOpen} departments={departments} employee={editingEmployee} onSaved={afterSaved} />
     <EmployeeDetailsDialog employee={detailsEmployee} onOpenChange={(open) => { if (!open) setDetailsEmployee(null); }} />
   </div>;

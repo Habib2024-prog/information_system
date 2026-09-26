@@ -5,6 +5,8 @@ export type EmployeeSortField = "id" | "name" | "father_name" | "school_workplac
 
 export interface EmployeeFilters {
   search: string;
+  name?: string;
+  father_name?: string;
   job_title_code: string;
   field_match_code: string;
   department_id: string;

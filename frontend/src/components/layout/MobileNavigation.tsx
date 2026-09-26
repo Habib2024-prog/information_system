@@ -15,7 +15,7 @@ export function MobileNavigation() {
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-slate-950/20" />
-        <Dialog.Content className="fixed inset-y-0 right-0 z-50 flex w-[min(20rem,88vw)] flex-col border-l border-line bg-white shadow-panel">
+        <Dialog.Content className="fixed inset-y-0 right-0 z-50 flex w-[min(20rem,88vw)] flex-col border-l border-line/80 bg-white/90 shadow-panel backdrop-blur-xl">
           <div className="flex h-20 items-center justify-between border-b border-line px-5">
             <Dialog.Title className="text-sm font-bold text-ink">سیستم مدیریت اطلاعات</Dialog.Title>
             <Dialog.Close asChild>

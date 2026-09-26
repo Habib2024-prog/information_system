@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import { CircleAlert, Inbox, LoaderCircle } from "lucide-react";
 
 import { cn } from "../../lib/utils";
+import { Button } from "../ui/button";
 
 interface StateProps {
   title: string;
@@ -28,6 +29,11 @@ export function LoadingState(props: Omit<StateProps, "icon">) {
   return <StatePanel {...props} icon={LoaderCircle} className={cn("[&>svg]:animate-spin", props.className)} />;
 }
 
-export function ErrorState(props: Omit<StateProps, "icon">) {
-  return <StatePanel {...props} icon={CircleAlert} />;
+export function ErrorState({ onRetry, ...props }: Omit<StateProps, "icon"> & { onRetry?: () => void }) {
+  return (
+    <div className="space-y-3">
+      <StatePanel {...props} icon={CircleAlert} />
+      {onRetry ? <Button onClick={onRetry}>دوباره تلاش کنید</Button> : null}
+    </div>
+  );
 }

@@ -14,11 +14,12 @@ AMIR_FINAL_RESULT_LABELS: Final[dict[str, str]] = {
 
 
 def get_amir_final_result_code(total_score: Decimal) -> str | None:
-    if Decimal("1") <= total_score <= Decimal("4"):
+    """Classify an exact, unrounded Amir/Senior Teacher Observation total."""
+    if Decimal("1.00") <= total_score <= Decimal("4.99"):
         return AMIR_FINAL_RESULT_BASIC_CAPABILITY
-    if Decimal("5") <= total_score <= Decimal("8"):
+    if Decimal("5.00") <= total_score <= Decimal("8.99"):
         return AMIR_FINAL_RESULT_APPLIED_CAPABILITY
-    if Decimal("9") <= total_score <= Decimal("12"):
+    if Decimal("9.00") <= total_score <= Decimal("12.00"):
         return AMIR_FINAL_RESULT_MASTERY
     return None
 

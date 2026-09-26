@@ -12,8 +12,8 @@ interface AppSidebarProps {
 
 export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
   return (
-    <aside className={cn("fixed inset-y-0 right-0 z-40 hidden border-l border-line bg-white lg:flex lg:flex-col", collapsed ? "w-[84px]" : "w-72", "motion-safe-transition") }>
-      <div className="flex h-20 items-center justify-between border-b border-line px-4">
+    <aside className={cn("fixed inset-y-0 right-0 z-40 hidden border-l border-line/80 bg-white/80 backdrop-blur-xl lg:flex lg:flex-col", collapsed ? "w-[84px]" : "w-72", "motion-safe-transition") }>
+      <div className="flex h-[76px] items-center justify-between border-b border-line/80 px-4">
         <div className={cn("min-w-0", collapsed && "sr-only")}>
           <p className="truncate text-sm font-bold text-ink">سیستم مدیریت اطلاعات</p>
           <p className="mt-1 truncate text-xs text-muted">سامانه معلومات دولتی</p>
@@ -30,8 +30,8 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
             end={path === "/"}
             title={collapsed ? label : undefined}
             className={({ isActive }) => cn(
-              "motion-safe-transition flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-muted hover:bg-slate-50 hover:text-ink",
-              isActive && "bg-accent-soft text-accent",
+              "motion-safe-transition flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-muted hover:bg-white/80 hover:text-ink",
+              isActive && "bg-accent-soft/90 text-accent shadow-[inset_0_0_0_1px_hsl(var(--primary)_/_0.08)]",
               collapsed && "justify-center px-0",
             )}
           >

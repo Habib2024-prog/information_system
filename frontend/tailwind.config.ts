@@ -13,6 +13,7 @@ export default {
         muted: "hsl(var(--text-secondary) / <alpha-value>)",
         line: "hsl(var(--border) / <alpha-value>)",
         canvas: "hsl(var(--background) / <alpha-value>)",
+        glass: "hsl(var(--glass))",
         accent: {
           DEFAULT: "hsl(var(--primary) / <alpha-value>)",
           foreground: "hsl(var(--primary-foreground) / <alpha-value>)",

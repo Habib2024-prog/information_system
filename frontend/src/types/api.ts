@@ -48,6 +48,7 @@ export interface Employee {
   successful_evaluation: string;
   field_match_code: string;
   notes: string | null;
+  observation_count: number;
   departments: EmployeeDepartment[];
 }
 
