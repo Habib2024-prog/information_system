@@ -1,6 +1,8 @@
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
+from app.common.audit_codes import AuditAction, AuditEntity
+from app.services.audit_service import audit_service, record_snapshot
 
 from app.common.employee_codes import TEACHER_JOB_TITLE_CODE
 from app.common.teacher_observation_results import get_teacher_final_result_code
@@ -154,7 +156,8 @@ class TeacherObservationService:
         values.update(self._calculated_values(data))
         values["employee_id"] = employee_id
         observation = self.repository.create(db, values)
-        db.commit()
+        audit_service.commit_change(db, record=observation, action=AuditAction.CREATE_OBSERVATION,
+                                    entity_type=AuditEntity.TEACHER_OBSERVATION)
         db.refresh(observation)
         return self._to_read(observation)
 
@@ -176,10 +179,12 @@ class TeacherObservationService:
             raise TeacherObservationNotFoundError
 
         self._require_active_observer(db, data.observer_scientific_member_id)
+        before = record_snapshot(observation)
         values = data.model_dump()
         values.update(self._calculated_values(data))
         observation = self.repository.update(db, observation, values)
-        db.commit()
+        audit_service.commit_change(db, record=observation, action=AuditAction.UPDATE_OBSERVATION,
+                                    entity_type=AuditEntity.TEACHER_OBSERVATION, before_data=before)
         db.refresh(observation)
         return self._to_read(observation)
 
@@ -198,8 +203,10 @@ class TeacherObservationService:
         )
         if observation is None:
             raise TeacherObservationNotFoundError
+        before = record_snapshot(observation)
         self.repository.soft_delete(db, observation)
-        db.commit()
+        audit_service.commit_change(db, record=observation, action=AuditAction.DELETE_OBSERVATION,
+                                    entity_type=AuditEntity.TEACHER_OBSERVATION, before_data=before)
 
     def _require_active_employee(self, db: Session, employee_id: int) -> Employee:
         employee = self.employee_repository.get_by_id(db, employee_id)

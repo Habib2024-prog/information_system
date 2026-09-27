@@ -48,10 +48,10 @@ function menuKeyDown(event: KeyboardEvent<HTMLInputElement>, close: () => void) 
   if (event.key === "Escape") { event.preventDefault(); close(); }
 }
 
-interface SearchableSelectProps { value: string; options: SelectOption[]; onChange: (value: string) => void; placeholder: string; searchPlaceholder?: string; disabled?: boolean; className?: string; }
+interface SearchableSelectProps { value: string; options: SelectOption[]; onChange: (value: string) => void; placeholder: string; searchPlaceholder?: string; disabled?: boolean; className?: string; ariaLabel?: string; }
 
 /** One modal-aware portal select for filters and form fields. */
-export function SearchableSelect({ value, options, onChange, placeholder, searchPlaceholder = "جستجو", disabled = false, className }: SearchableSelectProps) {
+export function SearchableSelect({ value, options, onChange, placeholder, searchPlaceholder = "جستجو", disabled = false, className, ariaLabel }: SearchableSelectProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -59,7 +59,7 @@ export function SearchableSelect({ value, options, onChange, placeholder, search
   const selected = options.find((option) => option.value === value);
   const visibleOptions = useMemo(() => { const normalized = query.trim().toLocaleLowerCase(); return normalized ? options.filter((option) => option.label.toLocaleLowerCase().includes(normalized)) : options; }, [options, query]);
   const menu = open ? <div data-anchored-select-menu dir="rtl" style={position} className="z-[130] overflow-hidden rounded-lg border border-line bg-white shadow-panel"><div className="border-b border-line p-2"><label className="relative block"><Search size={15} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted" /><input autoFocus value={query} onKeyDown={(event) => menuKeyDown(event, () => setOpen(false))} onChange={(event) => setQuery(event.target.value)} className="input h-9 pr-8" placeholder={searchPlaceholder} /></label></div><div className="max-h-52 overflow-y-auto py-1" role="listbox">{visibleOptions.length ? visibleOptions.map((option) => <button key={option.value} type="button" role="option" aria-selected={option.value === value} className={cn("flex w-full items-center justify-between gap-3 px-3 py-2 text-right text-sm transition hover:bg-accent-soft focus:bg-accent-soft focus:outline-none", option.value === value && "bg-accent-soft text-accent")} onClick={() => { onChange(option.value); setOpen(false); }}><span className="min-w-0 flex-1 truncate">{option.label}</span>{option.value === value ? <Check size={16} className="shrink-0" /> : null}</button>) : <p className="px-3 py-3 text-sm text-muted">نتیجه‌ای یافت نشد</p>}</div></div> : null;
-  return <div className={cn("relative", className)} ref={rootRef}><button type="button" disabled={disabled} className="input flex items-center justify-between gap-2 text-right disabled:cursor-not-allowed" onKeyDown={(event) => { if (event.key === "Escape") setOpen(false); }} onClick={() => { setOpen((current) => !current); setQuery(""); }} aria-haspopup="listbox" aria-expanded={open}><span className={cn("truncate", selected ? "text-ink" : "text-muted")}>{selected?.label ?? placeholder}</span><ChevronDown size={16} className={cn("shrink-0 text-muted transition-transform", open && "rotate-180")} /></button>{menu ? createPortal(menu, portalTarget) : null}</div>;
+  return <div className={cn("relative", className)} ref={rootRef}><button type="button" aria-label={ariaLabel ?? placeholder} disabled={disabled} className="input flex items-center justify-between gap-2 text-right disabled:cursor-not-allowed" onKeyDown={(event) => { if (event.key === "Escape") setOpen(false); }} onClick={() => { setOpen((current) => !current); setQuery(""); }} aria-haspopup="listbox" aria-expanded={open}><span className={cn("truncate", selected ? "text-ink" : "text-muted")}>{selected?.label ?? placeholder}</span><ChevronDown size={16} className={cn("shrink-0 text-muted transition-transform", open && "rotate-180")} /></button>{menu ? createPortal(menu, portalTarget) : null}</div>;
 }
 
 interface MultiSelectProps { values: string[]; options: SelectOption[]; onChange: (values: string[]) => void; placeholder: string; className?: string; }

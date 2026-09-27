@@ -18,6 +18,7 @@ from app.schemas.school import (
 from app.services.school_service import (
     SchoolCodeExistsError,
     SchoolNotFoundError,
+    SchoolSectionNotFoundError,
     SchoolService,
     UndefinedGenderTypeCodeError,
     UndefinedSchoolTypeCodeError,
@@ -91,6 +92,8 @@ def create_school(data: SchoolCreate, db: DbSession) -> SchoolRead:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="نوع مکتب معتبر نیست.") from error
     except UndefinedGenderTypeCodeError as error:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="نوع جنسیت معتبر نیست.") from error
+    except SchoolSectionNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="شعبه مکتب معتبر نیست.") from error
 
 
 @router.put("/{school_id}", response_model=SchoolRead)
@@ -105,6 +108,8 @@ def update_school(school_id: int, data: SchoolUpdate, db: DbSession) -> SchoolRe
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="نوع مکتب معتبر نیست.") from error
     except UndefinedGenderTypeCodeError as error:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="نوع جنسیت معتبر نیست.") from error
+    except SchoolSectionNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="شعبه مکتب معتبر نیست.") from error
 
 
 @router.delete("/{school_id}", status_code=status.HTTP_204_NO_CONTENT)

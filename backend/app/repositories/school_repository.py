@@ -5,7 +5,7 @@ from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.school import School
-from app.models.school_grade_statistic import SchoolGradeStatistic
+from app.models.school_grade_section import SchoolGradeSection
 
 
 @dataclass(frozen=True)
@@ -82,49 +82,49 @@ class SchoolRepository:
         school.deleted_at = datetime.now(timezone.utc)
         db.flush()
 
-    def list_active_grade_statistics(
+    def list_active_grade_sections(
         self,
         db: Session,
         school_id: int,
-    ) -> list[SchoolGradeStatistic]:
+    ) -> list[SchoolGradeSection]:
         statement = (
-            select(SchoolGradeStatistic)
+            select(SchoolGradeSection)
             .where(
-                SchoolGradeStatistic.school_id == school_id,
-                SchoolGradeStatistic.deleted_at.is_(None),
+                SchoolGradeSection.school_id == school_id,
+                SchoolGradeSection.deleted_at.is_(None),
             )
-            .order_by(SchoolGradeStatistic.grade_number)
+            .order_by(SchoolGradeSection.grade_number, SchoolGradeSection.section_name)
         )
         return list(db.scalars(statement))
 
-    def list_grade_statistics_for_update(
+    def list_grade_sections_for_update(
         self,
         db: Session,
         school_id: int,
-    ) -> list[SchoolGradeStatistic]:
-        statement = select(SchoolGradeStatistic).where(SchoolGradeStatistic.school_id == school_id)
+    ) -> list[SchoolGradeSection]:
+        statement = select(SchoolGradeSection).where(SchoolGradeSection.school_id == school_id)
         return list(db.scalars(statement))
 
-    def create_grade_statistic(
+    def create_grade_section(
         self,
         db: Session,
         values: dict[str, object],
-    ) -> SchoolGradeStatistic:
-        statistic = SchoolGradeStatistic(**values)
-        db.add(statistic)
+    ) -> SchoolGradeSection:
+        section = SchoolGradeSection(**values)
+        db.add(section)
         db.flush()
-        return statistic
+        return section
 
-    def update_grade_statistic(
+    def update_grade_section(
         self,
         db: Session,
-        statistic: SchoolGradeStatistic,
+        section: SchoolGradeSection,
         values: dict[str, object],
-    ) -> SchoolGradeStatistic:
+    ) -> SchoolGradeSection:
         for field_name, value in values.items():
-            setattr(statistic, field_name, value)
+            setattr(section, field_name, value)
         db.flush()
-        return statistic
+        return section
 
     def _apply_filters(
         self,

@@ -1,4 +1,6 @@
 from sqlalchemy.orm import Session
+from app.common.audit_codes import AuditAction, AuditEntity
+from app.services.audit_service import audit_service, record_snapshot
 
 from app.common.department_labels import (
     DEPARTMENT_DISPLAY_LABELS,
@@ -39,7 +41,7 @@ class DepartmentService:
         self._ensure_defined_code(data.code)
         self._ensure_code_available(db, data.code)
         department = self.repository.create(db, code=data.code)
-        db.commit()
+        audit_service.commit_change(db, record=department, action=AuditAction.CREATE, entity_type=AuditEntity.DEPARTMENT)
         db.refresh(department)
         return self._to_read(department)
 
@@ -57,8 +59,10 @@ class DepartmentService:
         if data.code != department.code:
             self._ensure_code_available(db, data.code)
 
+        before = record_snapshot(department)
         department = self.repository.update(db, department, code=data.code)
-        db.commit()
+        audit_service.commit_change(db, record=department, action=AuditAction.UPDATE,
+                                    entity_type=AuditEntity.DEPARTMENT, before_data=before)
         db.refresh(department)
         return self._to_read(department)
 

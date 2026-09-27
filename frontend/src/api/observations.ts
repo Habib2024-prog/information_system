@@ -1,4 +1,4 @@
-import { apiGet, apiRequest, getApiUrl } from "./client";
+import { apiGet, apiRequest, apiFetch, apiDownload } from "./client";
 import type { PaginatedResponse } from "../types/api";
 
 export const observationCountUnavailable = true;
@@ -96,22 +96,17 @@ export const getAmirObservations = (params: Partial<ObservationFilters & { page:
   apiGet<PaginatedResponse<ObservationListItem>>(`/api/amir-observations${toQuery(params)}`);
 
 export async function deleteTeacherObservation(employeeId: number, observationId: number): Promise<void> {
-  const response = await fetch(getApiUrl(`/api/employees/${employeeId}/teacher-observations/${observationId}`), { method: "DELETE" });
+  const response = await apiFetch(`/api/employees/${employeeId}/teacher-observations/${observationId}`, { method: "DELETE" });
   if (!response.ok) throw new Error("حذف مشاهده با مشکل روبه‌رو شد.");
 }
 
 export async function deleteAmirObservation(employeeId: number, observationId: number): Promise<void> {
-  const response = await fetch(getApiUrl(`/api/employees/${employeeId}/amir-observations/${observationId}`), { method: "DELETE" });
+  const response = await apiFetch(`/api/employees/${employeeId}/amir-observations/${observationId}`, { method: "DELETE" });
   if (!response.ok) throw new Error("حذف مشاهده با مشکل روبه‌رو شد.");
 }
 
 async function exportObservations(path: string, fallbackFilename: string): Promise<void> {
-  const response = await fetch(getApiUrl(path));
-  if (!response.ok) throw new Error("دریافت فایل اکسل با مشکل روبه‌رو شد.");
-  const filename = response.headers.get("content-disposition")?.match(/filename=\"?([^\";]+)\"?/i)?.[1] ?? fallbackFilename;
-  const url = URL.createObjectURL(await response.blob());
-  const link = document.createElement("a");
-  link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+  await apiDownload(path, fallbackFilename);
 }
 
 export const exportTeacherObservations = (filters: Partial<ObservationFilters>) => exportObservations(`/api/teacher-observations/export${toQuery(filters)}`, "teacher_observations.xlsx");

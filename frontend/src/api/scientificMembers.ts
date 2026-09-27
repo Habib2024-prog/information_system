@@ -1,4 +1,4 @@
-import { apiGet, apiRequest, getApiUrl } from "./client";
+import { apiGet, apiRequest, apiFetch, apiDownload } from "./client";
 import type { PaginatedResponse, ScientificMember } from "../types/api";
 
 export interface ScientificMemberFilters { search: string; name: string; surname: string; father_name: string; academic_rank: string; department_id: string; }
@@ -16,10 +16,7 @@ export function getScientificMembers({ page = 1, page_size = 100, search = "", .
 export const createScientificMember = (payload: ScientificMemberPayload) => apiRequest<ScientificMember>("/api/scientific-members", { method: "POST", body: JSON.stringify(payload) });
 export const updateScientificMember = (id: number, payload: ScientificMemberPayload) => apiRequest<ScientificMember>(`/api/scientific-members/${id}`, { method: "PUT", body: JSON.stringify(payload) });
 
-export async function deleteScientificMember(id: number) { const response = await fetch(getApiUrl(`/api/scientific-members/${id}`), { method: "DELETE" }); if (!response.ok) throw new Error("حذف عضو علمی با مشکل روبه‌رو شد."); }
-export async function exportScientificMembers(filters: Partial<ScientificMemberFilters>) { const response = await fetch(getApiUrl(`/api/scientific-members/export${toQuery(filters)}`)); if (!response.ok) throw new Error("صدور فایل اکسل با مشکل روبه‌رو شد."); saveBlob(await response.blob(), getFilename(response, "scientific_members.xlsx")); }
+export async function deleteScientificMember(id: number) { const response = await apiFetch(`/api/scientific-members/${id}`, { method: "DELETE" }); if (!response.ok) throw new Error("حذف عضو علمی با مشکل روبه‌رو شد."); }
+export async function exportScientificMembers(filters: Partial<ScientificMemberFilters>) { await apiDownload(`/api/scientific-members/export${toQuery(filters)}`, "scientific_members.xlsx"); }
 export function getObservationHistory(memberId: number, { page = 1, page_size = 20, ...filters }: Partial<ObservationHistoryFilters> & { page?: number; page_size?: number } = {}) { return apiGet<PaginatedResponse<ObservationHistoryItem>>(`/api/scientific-members/${memberId}/observations${toQuery({ page, page_size, ...filters })}`); }
-export async function exportObservationHistory(memberId: number) { const response = await fetch(getApiUrl(`/api/scientific-members/${memberId}/observations/export`)); if (!response.ok) throw new Error("صدور فایل اکسل مشاهدات با مشکل روبه‌رو شد."); saveBlob(await response.blob(), getFilename(response, "scientific_member_observations.xlsx")); }
-
-function getFilename(response: Response, fallback: string) { return response.headers.get("content-disposition")?.match(/filename="?([^";]+)"?/i)?.[1] ?? fallback; }
-function saveBlob(blob: Blob, filename: string) { const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url); }
+export async function exportObservationHistory(memberId: number) { await apiDownload(`/api/scientific-members/${memberId}/observations/export`, "scientific_member_observations.xlsx"); }

@@ -3,9 +3,12 @@ import { Menu, X } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 import { Button } from "../ui/button";
-import { navigationItems } from "./navigation";
+import { getNavigationItems } from "./navigation";
+import { useAuth } from "../../auth/AuthContext";
 
 export function MobileNavigation() {
+  const { isAdmin } = useAuth();
+  const navigationItems = getNavigationItems(isAdmin);
   return (
     <Dialog.Root>
       <Dialog.Trigger asChild>

@@ -1,5 +1,7 @@
 from fastapi import Response
 from sqlalchemy.orm import Session
+from app.common.audit_codes import AuditEntity
+from app.services.audit_service import audited_export
 
 from app.common.amir_competency_levels import format_amir_competency
 from app.common.amir_observation_results import get_amir_final_result_display_label
@@ -40,6 +42,7 @@ class ExcelExportService:
         self.teacher_observation_service = teacher_observation_service or TeacherObservationService()
         self.amir_observation_service = amir_observation_service or AmirObservationService()
 
+    @audited_export(AuditEntity.EMPLOYEE_EXPORT)
     def export_employees(
         self,
         db: Session,
@@ -56,6 +59,7 @@ class ExcelExportService:
         )
         return self._employee_response(employees, filename="employees.xlsx")
 
+    @audited_export(AuditEntity.DEPARTMENT_EXPORT)
     def export_department_employees(
         self,
         db: Session,
@@ -77,6 +81,7 @@ class ExcelExportService:
             filename=f"department_{department_id}_employees.xlsx",
         )
 
+    @audited_export(AuditEntity.SCHOOL_EXPORT)
     def export_schools(
         self,
         db: Session,
@@ -85,26 +90,54 @@ class ExcelExportService:
         sort_by: str,
         sort_order: str,
     ) -> Response:
-        grade_column_indexes = set(range(17, 29))
+        schools = self.school_service.list_schools_for_export(
+            db,
+            filters=filters,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
         workbook = build_workbook(
             worksheet_title="مکاتب",
-            headers=_school_headers(),
-            rows=(_school_row(school) for school in self.school_service.list_schools_for_export(
-                db,
-                filters=filters,
-                sort_by=sort_by,
-                sort_order=sort_order,
-            )),
-            wrap_text_columns={15, 16, *grade_column_indexes},
+            headers=_school_general_headers(),
+            rows=(_school_general_row(school) for school in schools),
+            wrap_text_columns={15, 16},
             text_columns={3, 6},
         )
-        worksheet = workbook.active
-        for column_index in grade_column_indexes:
-            worksheet.column_dimensions[worksheet.cell(row=1, column=column_index).column_letter].width = 18
-        for row_index in range(2, worksheet.max_row + 1):
-            worksheet.row_dimensions[row_index].height = 60
+        add_worksheet(
+            workbook,
+            worksheet_title="آمار صنوف و شعبات",
+            headers=[
+                "نام مکتب",
+                "کد مکتب",
+                "صنف",
+                "شعبه",
+                "تعداد داخله",
+                "تعداد حاضر",
+                "تعداد ذکور",
+                "تعداد اناث",
+            ],
+            rows=_school_section_rows(schools),
+            text_columns={2, 4},
+        )
+        add_worksheet(
+            workbook,
+            worksheet_title="خلاصه صنوف",
+            headers=[
+                "نام مکتب",
+                "کد مکتب",
+                "صنف",
+                "تعداد شعبات",
+                "مجموع داخله",
+                "مجموع حاضر",
+                "مجموع ذکور",
+                "مجموع اناث",
+            ],
+            rows=_school_grade_summary_rows(schools),
+            text_columns={2},
+        )
         return workbook_download_response(workbook, "schools.xlsx")
 
+    @audited_export(AuditEntity.SCIENTIFIC_MEMBER_EXPORT)
     def export_scientific_members(
         self,
         db: Session,
@@ -130,6 +163,7 @@ class ExcelExportService:
         )
         return workbook_download_response(workbook, "scientific_members.xlsx")
 
+    @audited_export(AuditEntity.TEACHER_OBSERVATION_EXPORT)
     def export_teacher_observations(
         self,
         db: Session,
@@ -154,6 +188,7 @@ class ExcelExportService:
         )
         return workbook_download_response(workbook, "teacher_observations.xlsx")
 
+    @audited_export(AuditEntity.AMIR_OBSERVATION_EXPORT)
     def export_amir_observations(
         self,
         db: Session,
@@ -181,6 +216,7 @@ class ExcelExportService:
             "amir_senior_teacher_observations.xlsx",
         )
 
+    @audited_export(AuditEntity.SCIENTIFIC_MEMBER_OBSERVATION_EXPORT)
     def export_scientific_member_observation_history(
         self,
         db: Session,
@@ -410,8 +446,8 @@ def _employee_row(employee: EmployeeRead) -> list[object | None]:
     ]
 
 
-def _school_headers() -> list[str]:
-    headers = [
+def _school_general_headers() -> list[str]:
+    return [
         "شماره",
         "نام مکتب",
         "شماره تماس آمر مکتب",
@@ -429,15 +465,10 @@ def _school_headers() -> list[str]:
         "نیازهای مکتب",
         "تجهیزات مکتب",
     ]
-    for grade_number in range(1, 13):
-        display_grade_number = _to_persian_digits(grade_number)
-        headers.append(f"صنف {display_grade_number}")
-    return headers
 
 
-def _school_row(school: SchoolRead) -> list[object | None]:
-    statistics_by_grade = {statistic.grade_number: statistic for statistic in school.grade_statistics}
-    row: list[object | None] = [
+def _school_general_row(school: SchoolRead) -> list[object | None]:
+    return [
         school.id,
         school.school_name,
         school.school_head_phone,
@@ -455,23 +486,34 @@ def _school_row(school: SchoolRead) -> list[object | None]:
         school.school_needs,
         school.school_equipment,
     ]
-    for grade_number in range(1, 13):
-        statistic = statistics_by_grade.get(grade_number)
-        if statistic is None:
-            row.append(None)
-        else:
-            row.append(
-                "\n".join(
-                    [
-                        f"داخله: {statistic.enrolled_count}",
-                        f"حاضر: {statistic.present_count}",
-                        f"ذکور: {statistic.male_count}",
-                        f"اناث: {statistic.female_count}",
-                    ]
-                )
-            )
-    return row
 
 
-def _to_persian_digits(value: int) -> str:
-    return str(value).translate(str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹"))
+def _school_section_rows(schools: list[SchoolRead]):
+    for school in sorted(schools, key=lambda item: (item.school_name, item.school_code)):
+        for grade in sorted(school.grade_statistics, key=lambda item: item.grade_number):
+            for section in sorted(grade.sections, key=lambda item: item.section_name):
+                yield [
+                    school.school_name,
+                    school.school_code,
+                    grade.grade_number,
+                    section.section_name,
+                    section.enrolled_count,
+                    section.present_count,
+                    section.male_count,
+                    section.female_count,
+                ]
+
+
+def _school_grade_summary_rows(schools: list[SchoolRead]):
+    for school in sorted(schools, key=lambda item: (item.school_name, item.school_code)):
+        for grade in sorted(school.grade_statistics, key=lambda item: item.grade_number):
+            yield [
+                school.school_name,
+                school.school_code,
+                grade.grade_number,
+                len(grade.sections),
+                grade.totals.enrolled_count,
+                grade.totals.present_count,
+                grade.totals.male_count,
+                grade.totals.female_count,
+            ]

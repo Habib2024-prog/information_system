@@ -1,4 +1,6 @@
 from sqlalchemy.orm import Session
+from app.common.audit_codes import AuditAction, AuditEntity
+from app.services.audit_service import audit_service, record_snapshot
 
 from app.common.department_labels import get_department_display_label
 from app.models.department import Department
@@ -137,7 +139,7 @@ class ScientificMemberService:
     def create_member(self, db: Session, data: ScientificMemberCreate) -> ScientificMemberRead:
         self._require_active_department(db, data.department_id)
         member = self.repository.create(db, data.model_dump())
-        db.commit()
+        audit_service.commit_change(db, record=member, action=AuditAction.CREATE, entity_type=AuditEntity.SCIENTIFIC_MEMBER)
         db.refresh(member)
         return self._to_read(db, member)
 
@@ -152,8 +154,10 @@ class ScientificMemberService:
             raise ScientificMemberNotFoundError
 
         self._require_active_department(db, data.department_id)
+        before = record_snapshot(member)
         member = self.repository.update(db, member, data.model_dump())
-        db.commit()
+        audit_service.commit_change(db, record=member, action=AuditAction.UPDATE,
+                                    entity_type=AuditEntity.SCIENTIFIC_MEMBER, before_data=before)
         db.refresh(member)
         return self._to_read(db, member)
 
@@ -161,8 +165,10 @@ class ScientificMemberService:
         member = self.repository.get_by_id(db, member_id)
         if member is None:
             raise ScientificMemberNotFoundError
+        before = record_snapshot(member)
         self.repository.soft_delete(db, member)
-        db.commit()
+        audit_service.commit_change(db, record=member, action=AuditAction.DELETE,
+                                    entity_type=AuditEntity.SCIENTIFIC_MEMBER, before_data=before)
 
     def _require_active_department(self, db: Session, department_id: int) -> Department:
         department = self.department_repository.get_by_id(db, department_id)

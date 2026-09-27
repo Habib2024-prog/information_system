@@ -2,6 +2,8 @@ from dataclasses import replace
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
+from app.common.audit_codes import AuditAction, AuditEntity
+from app.services.audit_service import audit_service, record_snapshot
 
 from app.common.department_labels import (
     EDUCATION_TRAINING_DEPARTMENT_CODE,
@@ -145,7 +147,8 @@ class EmployeeService:
             data.model_dump(exclude={"department_ids"}),
         )
         self._sync_assignments(db, employee.id, department_ids)
-        db.commit()
+        audit_service.commit_change(db, record=employee, action=AuditAction.CREATE,
+                                    entity_type=AuditEntity.EMPLOYEE, after_data=self._audit_snapshot(db, employee))
         db.refresh(employee)
         return self._to_read(db, employee)
 
@@ -159,6 +162,7 @@ class EmployeeService:
         if employee is None:
             raise EmployeeNotFoundError
 
+        before = self._audit_snapshot(db, employee)
         department_ids = self._resolve_department_ids(
             db,
             job_title_code=data.job_title_code,
@@ -170,7 +174,9 @@ class EmployeeService:
             data.model_dump(exclude={"department_ids"}),
         )
         self._sync_assignments(db, employee.id, department_ids)
-        db.commit()
+        audit_service.commit_change(db, record=employee, action=AuditAction.UPDATE,
+                                    entity_type=AuditEntity.EMPLOYEE, before_data=before,
+                                    after_data=self._audit_snapshot(db, employee))
         db.refresh(employee)
         return self._to_read(db, employee)
 
@@ -178,8 +184,16 @@ class EmployeeService:
         employee = self.employee_repository.get_by_id(db, employee_id)
         if employee is None:
             raise EmployeeNotFoundError
+        before = self._audit_snapshot(db, employee)
         self.employee_repository.soft_delete(db, employee)
-        db.commit()
+        audit_service.commit_change(db, record=employee, action=AuditAction.DELETE,
+                                    entity_type=AuditEntity.EMPLOYEE, before_data=before,
+                                    after_data=self._audit_snapshot(db, employee))
+
+    def _audit_snapshot(self, db: Session, employee: Employee) -> dict:
+        return {**record_snapshot(employee), "department_ids": [
+            department.id for department in self.employee_repository.list_active_departments(db, employee.id)
+        ]}
 
     def _resolve_department_ids(
         self,

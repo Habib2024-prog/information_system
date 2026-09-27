@@ -57,14 +57,12 @@ erDiagram
     EMPLOYEES ||--o{ AMIR_OBSERVATIONS : is_observed_in
     SCIENTIFIC_MEMBERS ||--o{ TEACHER_OBSERVATIONS : observes
     SCIENTIFIC_MEMBERS ||--o{ AMIR_OBSERVATIONS : observes
-    SCHOOLS ||--o{ SCHOOL_GRADE_STATISTICS : has_grades
-    USERS ||--o{ USER_ROLES : receives
-    ROLES ||--o{ USER_ROLES : is_assigned
-    USERS o|--o{ AUDIT_LOGS : performs
+    SCHOOLS ||--o{ SCHOOL_GRADE_SECTIONS : has_grade_sections
+    USERS ||--o{ AUDIT_LOGS : performs
 ```
 
-`SCHOOL_GRADE_STATISTICS` is an approved child table for the grade 1 through 12
-statistics supplied by the Schools Excel requirements.
+`SCHOOL_GRADE_SECTIONS` is the approved child table for named sections within
+grades 1 through 12. Grade totals are calculated from active section rows.
 
 ## 4. Core tables
 
@@ -404,66 +402,72 @@ after soft deletion so it continues to identify the same school consistently.
 **Soft-delete behavior:** Set `deleted_at`; the precise restore and export
 handling is pending.
 
-### 4.8 `school_grade_statistics`
+### 4.8 `school_grade_sections`
 
-**Purpose:** Stores the approved per-school statistics for grades 1 through 12.
-Keeping each grade in its own row supports school lookup, filtering, and export
-without repeating the School's own fields.
+**Purpose:** Stores statistics for one named section within a School grade.
+One School can have zero, one, or many sections for each grade from 1 through
+12, without repeating the School's own fields.
 
 | Column | PostgreSQL type | Required | Default | Key / constraint / notes |
 | --- | --- | --- | --- | --- |
 | `id` | `BIGINT GENERATED ALWAYS AS IDENTITY` | Yes | identity | Primary key |
 | `school_id` | `BIGINT` | Yes | none | Foreign key to `schools.id` |
 | `grade_number` | `SMALLINT` | Yes | none | `CHECK (grade_number BETWEEN 1 AND 12)` |
+| `section_name` | `TEXT` | Yes | none | Free-text section/class name; `CHECK (section_name <> '')` |
 | `enrolled_count` | `INTEGER` | Yes | `0` | `CHECK (enrolled_count >= 0)` |
 | `present_count` | `INTEGER` | Yes | `0` | `CHECK (present_count >= 0 AND present_count <= enrolled_count)` |
-| `female_count` | `INTEGER` | Yes | `0` | `CHECK (female_count >= 0)` |
-| `male_count` | `INTEGER` | Yes | `0` | `CHECK (male_count >= 0)` |
+| `female_count` | `INTEGER` | Yes | `0` | `CHECK (female_count >= 0 AND female_count <= enrolled_count)` |
+| `male_count` | `INTEGER` | Yes | `0` | `CHECK (male_count >= 0 AND male_count <= enrolled_count)` |
 | `created_at` | `TIMESTAMPTZ` | Yes | `CURRENT_TIMESTAMP` | Creation timestamp |
 | `updated_at` | `TIMESTAMPTZ` | Yes | `CURRENT_TIMESTAMP` | Modification timestamp |
 | `deleted_at` | `TIMESTAMPTZ` | No | `NULL` | Soft-delete marker |
 
-**Relationship reason:** One School has one record for each supported grade,
-and grade statistics cannot exist without their School.
+**Relationship reason:** A School has grade sections, and a section cannot
+exist without its School. `grade_number` groups the sections under grades 1–12
+without storing duplicate grade totals.
 
 **Foreign keys:** `school_id REFERENCES schools(id)`. Hard deletion must be
 restricted; ordinary removal uses the soft-delete marker.
 
-**Unique constraints:** Partial unique index on `(school_id, grade_number)`
-where `deleted_at IS NULL`, which ensures one active statistics record for a
-School and grade while preserving soft-deleted history.
+**Unique constraints:** Partial unique index on
+`(school_id, grade_number, section_name) WHERE deleted_at IS NULL`. It prevents
+duplicate active section names within one School grade while allowing the same
+name in another grade and preserving soft-deleted history.
 
-**Count rule:** `present_count` must not exceed `enrolled_count`. The schema
-does not constrain `male_count + female_count = enrolled_count`; that equality
-has not been approved as a business rule.
+**Count rule:** `present_count`, `female_count`, and `male_count` must not
+individually exceed `enrolled_count`. The schema does not constrain
+`male_count + female_count = enrolled_count`; that equality has not been
+approved as a business rule. It does constrain
+`male_count + female_count <= enrolled_count`.
 
-**Indexes:** The unique constraint indexes `(school_id, grade_number)` and
-supports school lookup. Add a B-tree index on `grade_number` for cross-school
-grade filtering; index `deleted_at` only when query planning demonstrates a
-benefit.
+**Indexes:** The partial unique index supports active School/grade/section
+lookup. A B-tree index on `grade_number` supports cross-school grade filtering;
+index `deleted_at` only when query planning demonstrates a benefit.
 
 **Soft-delete behavior:** Set `deleted_at`; active statistics queries exclude
 soft-deleted records.
 
-## 5. Future access-control tables
+## 5. Access control and audit logs
 
-These tables support the requested future Authentication, Roles, and Audit Logs
-features. Their presence in this design does not authorize implementation before
-the future requirements are finalized.
+Username/password authentication and one role per account are now approved.
+The current design below supersedes the earlier future `roles` / `user_roles`
+proposal. Audit logging and the initial module-access policy are now approved;
+finer permissions and audit retention remain future work.
 
 ### 5.1 `users`
 
-**Purpose:** Future authenticated-user account. It is separate from `employees`
+**Purpose:** Authenticated-user account. It is separate from `employees`
 because a user account is an access-control identity, not employee personnel
 data.
 
 | Column | PostgreSQL type | Required | Default | Key / constraint / notes |
 | --- | --- | --- | --- | --- |
 | `id` | `BIGINT GENERATED ALWAYS AS IDENTITY` | Yes | identity | Primary key |
-| `login_identifier` | `TEXT` | Yes | none | Login name/identifier; authentication method is TBD |
-| `password_hash` | `TEXT` | No | `NULL` | Only for a future password-based method; never a plaintext password |
-| `is_active` | `BOOLEAN` | Yes | `TRUE` | Future account enablement flag |
-| `last_login_at` | `TIMESTAMPTZ` | No | `NULL` | Future authentication metadata |
+| `username` | `TEXT` | Yes | none | Unique username; no email is required |
+| `full_name` | `TEXT` | Yes | none | Persian/Dari user name |
+| `password_hash` | `TEXT` | Yes | none | Argon2 hash only; never returned from the API |
+| `role_code` | `TEXT` | Yes | none | `CHECK (role_code IN ('admin', 'user'))`; one role per account |
+| `is_active` | `BOOLEAN` | Yes | `TRUE` | Account enablement flag |
 | `created_at` | `TIMESTAMPTZ` | Yes | `CURRENT_TIMESTAMP` | Creation timestamp |
 | `updated_at` | `TIMESTAMPTZ` | Yes | `CURRENT_TIMESTAMP` | Modification timestamp |
 | `deleted_at` | `TIMESTAMPTZ` | No | `NULL` | Soft-delete marker |
@@ -471,101 +475,70 @@ data.
 **Foreign keys:** None. A user-to-employee relationship has not been supplied
 and must not be invented.
 
-**Unique constraints:** Partial unique index on
-`login_identifier WHERE deleted_at IS NULL`, allowing a deleted account's
-identifier to be reused only if future policy permits it.
+**Unique constraints:** `UNIQUE (username)`; deleted accounts still reserve
+their usernames. No username case-folding policy is introduced.
 
-**Indexes:** The partial unique index above; index `is_active` only if account
-administration queries demonstrate a need.
+**Indexes:** The unique constraint indexes `username` for login and duplicate
+checks. B-tree index on `role_code` supports role lookup. Normal user queries
+exclude deleted accounts.
 
-**Soft-delete behavior:** Set `deleted_at`; disable the account through
-`is_active` according to future authentication policy.
+**Soft-delete behavior:** Set `deleted_at`. Deleted and inactive accounts
+cannot log in or authenticate with an already-issued token. Password and role
+changes update `updated_at`; only public fields are serialized to responses.
 
-### 5.2 `roles`
+### 5.2 Role representation
 
-**Purpose:** Future role catalogue used by role-based authorization.
+`admin` and `user` are stable internal codes with centralized Persian/Dari
+labels. The approved account payload contains one `role_code`, so no `roles`
+or `user_roles` tables are created in this phase. There is no relationship to
+employees or scientific members. Reusable authentication dependencies resolve
+the account and check its current role/status from the database.
 
-| Column | PostgreSQL type | Required | Default | Key / constraint / notes |
-| --- | --- | --- | --- | --- |
-| `id` | `BIGINT GENERATED ALWAYS AS IDENTITY` | Yes | identity | Primary key |
-| `code` | `TEXT` | Yes | none | Stable internal role code; UI label comes from centralized mapping |
-| `created_at` | `TIMESTAMPTZ` | Yes | `CURRENT_TIMESTAMP` | Creation timestamp |
-| `updated_at` | `TIMESTAMPTZ` | Yes | `CURRENT_TIMESTAMP` | Modification timestamp |
-| `deleted_at` | `TIMESTAMPTZ` | No | `NULL` | Soft-delete marker |
+### 5.3 `audit_logs`
 
-**Foreign keys:** None.
-
-**Unique constraints:** `UNIQUE (code)`.
-
-**Indexes:** The unique constraint indexes `code`; add `deleted_at` indexing
-only if query planning requires it.
-
-**Soft-delete behavior:** Soft-deleted roles cannot be assigned. The role and
-permission matrix remains a future requirement.
-
-### 5.3 `user_roles`
-
-**Purpose:** Many-to-many association that permits a user to hold multiple roles
-and a role to be assigned to multiple users.
-
-| Column | PostgreSQL type | Required | Default | Key / constraint / notes |
-| --- | --- | --- | --- | --- |
-| `id` | `BIGINT GENERATED ALWAYS AS IDENTITY` | Yes | identity | Primary key |
-| `user_id` | `BIGINT` | Yes | none | Foreign key to `users.id` |
-| `role_id` | `BIGINT` | Yes | none | Foreign key to `roles.id` |
-| `created_at` | `TIMESTAMPTZ` | Yes | `CURRENT_TIMESTAMP` | Assignment creation timestamp |
-| `updated_at` | `TIMESTAMPTZ` | Yes | `CURRENT_TIMESTAMP` | Assignment modification timestamp |
-| `deleted_at` | `TIMESTAMPTZ` | No | `NULL` | Assignment soft-delete marker |
-
-**Foreign keys:** `user_id REFERENCES users(id)` and `role_id REFERENCES
-roles(id)`. Both exist to represent the future many-to-many role assignment
-without copying role values into `users`.
-
-**Unique constraints:** Partial unique index on `(user_id, role_id) WHERE
-deleted_at IS NULL` prevents duplicate active role assignments while preserving
-the ability to record a later re-assignment.
-
-**Indexes:** B-tree indexes on `(user_id, role_id)` and `(role_id, user_id)`;
-the partial unique index supports active assignment lookup.
-
-**Soft-delete behavior:** Removing a role assignment sets `deleted_at`. The
-future authorization service uses active assignments only.
-
-### 5.4 `audit_logs`
-
-**Purpose:** Future append-only record of material application actions. It
+**Purpose:** Append-only record of successful application actions. It
 supports actor lookup and entity history without forcing every audited entity
 into a common parent table.
 
 | Column | PostgreSQL type | Required | Default | Key / constraint / notes |
 | --- | --- | --- | --- | --- |
 | `id` | `BIGINT GENERATED ALWAYS AS IDENTITY` | Yes | identity | Primary key |
-| `actor_user_id` | `BIGINT` | No | `NULL` | Foreign key to `users.id`; nullable for system/unknown actors |
-| `action_code` | `TEXT` | Yes | none | Stable internal action code; future vocabulary |
+| `user_id` | `BIGINT` | Yes | none | Foreign key to `users.id`; authenticated actor, never supplied by the client |
+| `action` | `TEXT` | Yes | none | Centralized stable action code |
 | `entity_type` | `TEXT` | Yes | none | Stable internal table/entity type code |
-| `entity_id` | `BIGINT` | Yes | none | Identifier of the affected entity; generic reference cannot have a single SQL foreign key |
-| `before_data` | `JSONB` | No | `NULL` | Future pre-change snapshot/payload; exact scope TBD |
-| `after_data` | `JSONB` | No | `NULL` | Future post-change snapshot/payload; exact scope TBD |
+| `entity_id` | `BIGINT` | No | `NULL` | Affected entity or export scope ID; global exports have no single entity ID; generic reference has no SQL foreign key |
+| `description` | `TEXT` | Yes | none | Persian/Dari action description using centralized mappings |
+| `before_data` | `JSONB` | No | `NULL` | Sanitized pre-change record snapshot; null for creation |
+| `after_data` | `JSONB` | No | `NULL` | Sanitized resulting record snapshot; never credentials |
+| `metadata` | `JSONB` | No | `NULL` | Effective export filters/scopes and sorting; never workbook content |
+| `ip_address` | `TEXT` | No | `NULL` | Request client host when available; no custom forwarded-IP handling |
 | `created_at` | `TIMESTAMPTZ` | Yes | `CURRENT_TIMESTAMP` | Time the audit event was recorded |
 
-**Foreign keys:** `actor_user_id REFERENCES users(id) ON DELETE SET NULL`.
+**Foreign keys:** `user_id REFERENCES users(id) ON DELETE RESTRICT`.
 `entity_type` plus `entity_id` is intentionally not an SQL foreign key because
-an audit event may refer to any of several tables. Application validation will
-be defined with the audit-log requirements.
+an audit event may refer to any of several tables. Soft-deleted users remain
+referenced and readable as audit actors; hard deletion of a referenced user is
+restricted.
 
 **Unique constraints:** None; separate actions may legitimately concern the
 same entity at the same time.
 
 **Indexes:**
 
-- B-tree index on `(entity_type, entity_id, created_at DESC)` for an entity's
+- B-tree index on `(entity_type, entity_id, created_at)` for an entity's
   audit history.
-- B-tree index on `(actor_user_id, created_at DESC)` for actor history.
-- B-tree index on `created_at DESC` for chronological reporting.
+- B-tree indexes on `user_id`, `action`, `entity_type`, `entity_id`, and
+  `created_at` for filtering and newest-first reporting. PostgreSQL B-tree
+  indexes support reverse scans for descending ordering.
 
 **Timestamps and deletion:** `audit_logs` has `created_at` only. It has no
 `updated_at` or `deleted_at` because audit entries should be append-only and
-immutable; retention and access policy are future decisions.
+immutable. An ORM guard and PostgreSQL trigger reject UPDATE, DELETE, and
+TRUNCATE (the trigger covers raw/bulk SQL as well). Administrators have read-only
+API access, with no create/edit/delete endpoints for logs. Retention remains
+pending. Business changes and their audit rows commit together; export logs
+are committed after successful workbook generation. Credentials are recursively
+excluded before insertion and again before serialization.
 
 ## 6. Relationship rationale
 
@@ -576,9 +549,9 @@ immutable; retention and access policy are future decisions.
 | `employees` → `teacher_observations` | Preserves the requirement that a teacher/employee may receive many Teacher Observations. |
 | `employees` → `amir_observations` | Preserves the requirement that an employee may receive many Amir/Senior Teacher Observations. |
 | `scientific_members` → observation tables | Identifies the observer and supports the Scientific Member UI action that counts and lists observations performed. |
-| `schools` → `school_grade_statistics` | Stores one grade 1–12 statistics row per School and prevents repeated School details in each grade record. |
-| `users` → `user_roles` ← `roles` | Supports future many-to-many role assignment without storing role names directly on user accounts. |
-| `users` → `audit_logs` | Associates a future audit event with its actor while allowing system-generated events to have no user. |
+| `schools` → `school_grade_sections` | Stores one named section per School and grade, supports multiple sections for a grade, and prevents repeated School details or stored grade totals. |
+| `users.role_code` | Each account has exactly one approved role; no role-assignment relationship table is necessary. |
+| `users` → `audit_logs` | Associates each audited request with its authenticated actor and preserves history after account soft deletion. |
 
 ## 7. Filter and export support
 
@@ -592,7 +565,7 @@ immutable; retention and access policy are future decisions.
   indexes. The two tables remain separate; a Scientific Member's observation
   count/list is a combined read across them, excluding soft-deleted rows.
 - School filters use indexes on school code, name, type, gender/type, and
-  formation. Grade-statistics lookup uses `(school_id, grade_number)`.
+  formation. Grade-section lookup uses `(school_id, grade_number, section_name)`.
 - Excel export uses the same active filter criteria as the corresponding list
   query and exports complete matching records. It must not export all rows when
   the active filters select only a subset.
@@ -607,5 +580,6 @@ immutable; retention and access policy are future decisions.
   and Amir Observation Excel forms.
 - Observation competency decimal-gap behavior. Final-result totals are
   server-controlled and use the approved exact-decimal ranges without rounding.
-- Authentication method, role codes, permissions, audit event vocabulary,
-  retention, and access policy.
+- Finer module-specific permissions, audit retention, and archival policy.
+  Username/password authentication, the two roles, authenticated normal CRUD,
+  admin-only audit reads, and the initial audit action vocabulary are finalized.

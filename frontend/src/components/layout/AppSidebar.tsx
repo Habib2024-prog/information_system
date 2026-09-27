@@ -3,7 +3,8 @@ import { NavLink } from "react-router-dom";
 
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
-import { navigationItems } from "./navigation";
+import { getNavigationItems } from "./navigation";
+import { useAuth } from "../../auth/AuthContext";
 
 interface AppSidebarProps {
   collapsed: boolean;
@@ -11,6 +12,8 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
+  const { isAdmin } = useAuth();
+  const navigationItems = getNavigationItems(isAdmin);
   return (
     <aside className={cn("fixed inset-y-0 right-0 z-40 hidden border-l border-line/80 bg-white/80 backdrop-blur-xl lg:flex lg:flex-col", collapsed ? "w-[84px]" : "w-72", "motion-safe-transition") }>
       <div className="flex h-[76px] items-center justify-between border-b border-line/80 px-4">

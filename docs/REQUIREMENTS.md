@@ -239,21 +239,28 @@ The Schools module must support:
 - Filtering
 - Excel export
 
-School grade statistics requirements:
+School grade and section statistics requirements:
 
-- Each School must store student statistics in separate rows for grades 1 through
-  12; the School table must not use repeated per-grade columns.
-- Each grade-statistics row includes grade number, enrolled count, present
-  count, male count, and female count.
-- The UI must clearly display these four counts for every available grade from
-  **صنف ۱** through **صنف ۱۲**.
+- Each School has grades 1 through 12, and each grade may have zero, one, or
+  many named sections/classes. The School table must not use repeated per-grade
+  columns.
+- Each active section row includes grade number, section name, enrolled count,
+  present count, male count, and female count.
+- Section names are free text. Examples include **الف**, **ب**, **A**, and
+  **1**; no fixed section-name catalogue is required.
 - Grade number must be from 1 through 12 and all counts must be non-negative.
-- Present count must not exceed enrolled count.
-- The system must allow one active grade-statistics row per School and grade.
+- Present, male, and female counts must not individually exceed enrolled count.
+- The combined male and female count must not exceed enrolled count for each
+  section. Therefore, dynamic totals for a grade cannot exceed that grade's
+  enrolled total.
+- A School may have only one active occurrence of the same section name within
+  the same grade. The same section name may be used in another grade.
 - The system must not require male count plus female count to equal enrolled
   count unless that rule is later approved explicitly.
-- School details and future complete School exports must include all available
-  grade statistics.
+- School details must return sections nested under their grade and include
+  dynamic grade totals. Grade totals must not be stored as independent records.
+- School create/edit screens must support adding, editing, and removing several
+  sections for a grade before saving.
 
 ### 2.9 Filtering
 
@@ -283,11 +290,12 @@ Export requirements:
   visible in a summary list table.
 - If 1,000 records exist but active filters return 40, the Excel file must
   contain those 40 matching records and all applicable fields.
-- School exports use one column for each grade from 1 through 12. A populated
-  grade cell contains enrolled, present, male, and female counts on separate
-  lines. When an active grade-statistics row has not been recorded for a
-  School, that grade cell is blank; blank cells do not represent inferred
-  student statistics.
+- School exports use an **مکاتب** worksheet for general school information and
+  an **آمار صنوف و شعبات** worksheet with one row per active section. The
+  section worksheet includes school name, school code, grade, section, enrolled,
+  present, male, and female counts. A **خلاصه صنوف** worksheet may provide
+  dynamic totals per School and grade. Exports exclude soft-deleted schools and
+  sections and continue to apply active School filters.
 
 ### 2.11 UI list and detail behavior
 
@@ -318,6 +326,65 @@ Export requirements:
 - Commonly filtered fields require indexes.
 - Tests must be run after meaningful changes.
 - Unrelated working modules must not be modified when implementing a feature.
+
+### 2.13 Authentication, users, and roles
+
+- Administrators create accounts directly with `username`, `full_name`,
+  `password`, `role_code`, and `is_active`. No email, email verification, or
+  invite links are required or implemented.
+- The approved roles are `admin` and `user`; each account has one `role_code`.
+  Administrators manage users and view audit logs. Both roles can perform
+  normal business CRUD, observations, and exports.
+- Username is unique, including deleted accounts. Passwords require at least
+  eight characters and are stored only as secure Argon2 hashes. Plaintext
+  passwords and password hashes must never be returned in API responses or
+  logged, including validation failures.
+- Login uses username and password and returns an expiring JWT access token
+  plus public user information. Invalid credentials, unknown usernames,
+  inactive accounts, and deleted accounts receive a generic authentication
+  error without revealing which credential failed.
+- The current-user endpoint returns id, username, full_name, role_code, and
+  is_active. JWT signing configuration is provided through environment
+  variables, never hard-coded production secrets.
+- All user-management endpoints require an authenticated administrator.
+  Administrators can list, view, create, update, and delete users. Password
+  changes use a dedicated endpoint and store only the newly calculated hash.
+- User deletion remains soft deletion internally. Deleted and inactive users
+  cannot log in or use existing tokens; role checks use current database data.
+- The initial administrator is created through a local interactive command
+  that prompts for credentials; no default account/password is created.
+- Employee, department, Scientific Member, observation, School, and export
+  endpoints require an active authenticated user. Login and health remain
+  public; API documentation also requires authentication.
+
+### 2.14 Audit logs
+
+- Record successful LOGIN, CREATE, UPDATE, DELETE, EXPORT,
+  CREATE_OBSERVATION, UPDATE_OBSERVATION, DELETE_OBSERVATION, and
+  PASSWORD_CHANGE actions using centralized stable internal codes.
+- Track Employees (including department-assignment changes), mutable
+  Departments, Scientific Members, Schools, named School sections, both
+  observation types, and administrator actions on Users.
+- The actor comes from the authenticated account, never the submitted payload.
+  The IP is `Request.client.host` when available; do not implement additional
+  forwarded-header trust rules.
+- Creation records have a null before snapshot and a created-record after
+  snapshot. Updates record both states; deletion records the pre-deletion state
+  and may include the marked-deleted state.
+- Audit writes and business changes share a transaction. A failed operation or
+  audit write must not leave a successful-action record or partially committed
+  business changes. Failed logins are not recorded.
+- Export records are written after successful workbook generation. Store only
+  effective filters/scopes and sorting metadata, not workbook bytes or rows.
+- Recursively remove passwords, password hashes, tokens, secret keys,
+  authorization headers, and other credential fields from all audit JSON.
+- Audit logs are append-only and have no update/delete API or soft-delete
+  marker. User soft deletion preserves the audit actor relationship.
+- Only administrators can list or view audit records. Lists support combined
+  user, action, entity type, entity ID, and inclusive UTC date filters,
+  pagination, sorting, and newest-first ordering by default.
+- Trusted local seed/maintenance tools without an authenticated actor do not
+  fabricate an audit user; request-level actions are the current audit scope.
 
 ## 3. Pending clarifications
 
@@ -373,21 +440,21 @@ such handling is defined.
 
 ## 4. Future requirements
 
-### 4.1 Authentication
+### 4.1 Additional authentication functionality
 
-Authentication is planned for a future phase. The login method, user identity
-source, account lifecycle, session policy, and password or federation rules are
-not yet defined.
+Username/password login and administrator-created accounts are finalized in
+section 2.13. Frontend login, refresh-token policy, and any additional session
+features are outside the current backend implementation scope.
 
 ### 4.2 Roles and permissions
 
-Role-based permissions are planned for a future phase. The roles, permission
-matrix, module access rules, field-level restrictions, approval workflows, and
-conditions under which editing is permitted must be supplied before
-implementation.
+Roles `admin` and `user` and administrator-only user management are finalized.
+Both roles may use normal business modules; audit log access is admin-only.
+Additional field-level restrictions, approval workflows, and finer permission
+policies remain future requirements.
 
-### 4.3 Audit logs
+### 4.3 Additional audit policies
 
-Audit logs are planned for a future phase. The events to record, historical
-data to retain, user attribution, retention period, access controls, and audit
-reporting requirements are not yet defined.
+The backend audit behavior is finalized in section 2.14. Retention policy,
+additional reporting, archival, and auditing trusted local maintenance tools
+remain future decisions. No retention deletion is implemented.

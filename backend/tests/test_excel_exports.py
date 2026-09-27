@@ -62,15 +62,15 @@ def _school_payload(**overrides: object) -> dict[str, object]:
 
 
 def _grade(grade_number: int, **overrides: object) -> dict[str, object]:
-    statistic: dict[str, object] = {
-        "grade_number": grade_number,
+    section: dict[str, object] = {
+        "section_name": "الف",
         "enrolled_count": 30,
         "present_count": 28,
         "male_count": 15,
         "female_count": 15,
     }
-    statistic.update(overrides)
-    return statistic
+    section.update(overrides)
+    return {"grade_number": grade_number, "sections": [section]}
 
 
 def _worksheet(response):
@@ -192,15 +192,21 @@ def test_department_employee_export_has_only_selected_department_members_and_ful
     assert rows[0]["ملاحظات"] == "ملاحظات طولانی کارمند"
 
 
-def test_school_export_includes_filtered_complete_school_and_grade_statistics(
+def test_school_export_has_general_section_and_dynamic_summary_sheets(
     client: TestClient,
 ) -> None:
     first = client.post(
         "/api/schools",
         json=_school_payload(
             grade_statistics=[
-                _grade(1, enrolled_count=31, present_count=30),
-                _grade(12, enrolled_count=22, present_count=21),
+                {
+                    "grade_number": 1,
+                    "sections": [
+                        {"section_name": "الف", "enrolled_count": 31, "present_count": 30, "male_count": 15, "female_count": 16},
+                        {"section_name": "ب", "enrolled_count": 20, "present_count": 18, "male_count": 10, "female_count": 10},
+                    ],
+                },
+                _grade(12, enrolled_count=22, present_count=21, male_count=11, female_count=11),
             ]
         ),
     )
@@ -215,9 +221,12 @@ def test_school_export_includes_filtered_complete_school_and_grade_statistics(
     )
     assert first.status_code == second.status_code == 201
 
-    worksheet = _worksheet(
-        client.get("/api/schools/export", params={"school_type_code": "high_school"})
-    )
+    response = client.get("/api/schools/export", params={"school_type_code": "high_school"})
+    assert response.status_code == 200
+    workbook = load_workbook(BytesIO(response.content))
+    worksheet = workbook["مکاتب"]
+    section_sheet = workbook["آمار صنوف و شعبات"]
+    summary_sheet = workbook["خلاصه صنوف"]
     rows = _rows_by_header(worksheet)
     row = rows[0]
 
@@ -229,24 +238,18 @@ def test_school_export_includes_filtered_complete_school_and_grade_statistics(
     assert row["شماره تماس آمر مکتب"] == "0700000000"
     assert row["نیازهای مکتب"] == "نیاز به کتابخانه و صنف اضافی"
     assert row["تجهیزات مکتب"] == "کمپیوتر و میزهای آموزشی"
-    headers = [cell.value for cell in worksheet[1]]
-    grade_headers = [header for header in headers if isinstance(header, str) and header.startswith("صنف ")]
-    first_grade_cell = row["صنف ۱"]
-    twelfth_grade_cell = row["صنف ۱۲"]
-
-    assert grade_headers == [f"صنف {number}" for number in "۱۲۳۴۵۶۷۸۹"] + ["صنف ۱۰", "صنف ۱۱", "صنف ۱۲"]
-    assert len(grade_headers) == 12
-    assert headers.count("صنف ۱") == 1
-    assert headers.count("صنف ۱۲") == 1
-    assert "داخله: 31" in first_grade_cell
-    assert "حاضر: 30" in first_grade_cell
-    assert "ذکور: 15" in first_grade_cell
-    assert "اناث: 15" in first_grade_cell
-    assert first_grade_cell.count("\n") == 3
-    assert "داخله: 22" in twelfth_grade_cell
-    assert row["صنف ۲"] is None
-    assert worksheet.cell(row=2, column=headers.index("صنف ۱") + 1).alignment.wrap_text is True
-    assert worksheet.row_dimensions[2].height == 60
+    assert workbook.sheetnames == ["مکاتب", "آمار صنوف و شعبات", "خلاصه صنوف"]
+    assert all(sheet.sheet_view.rightToLeft for sheet in workbook.worksheets)
+    section_rows = _rows_by_header(section_sheet)
+    assert [(item["صنف"], item["شعبه"]) for item in section_rows] == [(1, "الف"), (1, "ب"), (12, "الف")]
+    assert section_rows[0]["تعداد داخله"] == 31
+    assert section_rows[0]["تعداد حاضر"] == 30
+    assert section_rows[0]["تعداد ذکور"] == 15
+    assert section_rows[0]["تعداد اناث"] == 16
+    summary_rows = _rows_by_header(summary_sheet)
+    assert summary_rows[0]["تعداد شعبات"] == 2
+    assert summary_rows[0]["مجموع داخله"] == 51
+    assert summary_rows[0]["مجموع حاضر"] == 48
     assert worksheet.cell(row=2, column=3).data_type == "s"
 
 

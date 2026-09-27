@@ -30,5 +30,9 @@ def get_db() -> Generator[Session, None, None]:
     db = SessionLocal(bind=get_engine())
     try:
         yield db
+    except Exception:
+        db.rollback()
+        raise
     finally:
+        db.info.pop("audit_context", None)
         db.close()

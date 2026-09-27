@@ -6,16 +6,20 @@ from app.models.employee import Employee
 from app.models.employee_department import EmployeeDepartment
 from app.models.scientific_member import ScientificMember
 from app.models.school import School
-from app.models.school_grade_statistic import SchoolGradeStatistic
+from app.models.school_grade_section import SchoolGradeSection
 from app.models.teacher_observation import TeacherObservation
+from app.models.user import User
+from app.models.audit_log import AuditLog
 
 __all__ = [
+    "AuditLog",
     "AmirObservation",
     "Department",
     "Employee",
     "EmployeeDepartment",
     "ScientificMember",
     "School",
-    "SchoolGradeStatistic",
+    "SchoolGradeSection",
     "TeacherObservation",
+    "User",
 ]
