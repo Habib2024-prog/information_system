@@ -14,7 +14,7 @@ function moduleUrl(path, overrides = {}) {
   const cacheKey = path + JSON.stringify(overrides);
   if (cache.has(cacheKey)) return cache.get(cacheKey);
   let source = ts.transpileModule(readFileSync(path, "utf8"), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
-  source = source.replaceAll("import.meta.env", "({})");
+  source = source.replaceAll("import.meta.env", overrides["import.meta.env"] ?? "({})");
   source = source.replace(/from\s+(["'])([^"']+)\1/g, (match, quote, specifier) => {
     if (overrides[specifier]) return `from ${quote}${overrides[specifier]}${quote}`;
     const local = resolve(dirname(path), specifier);
@@ -184,4 +184,28 @@ test("only admins get users and audit navigation items", async () => {
   assert.ok(!navigation.getNavigationItems(false).some((item) => item.path.startsWith("/admin")));
   assert.equal(navigation.getNavigationItems(true).length, 8);
   assert.ok(navigation.getNavigationItems(true).some((item) => item.path === "/admin/audit-logs"));
+});
+
+test("departments load from the production API origin with bearer authentication and server IDs", async () => {
+  const departments = await import(moduleUrl(resolve(root, "api/departments.ts"), {
+    "import.meta.env": '({ VITE_API_BASE_URL: " https://information-system-989w.onrender.com/ " })',
+    "../auth/session": moduleUrl(resolve(root, "auth/session.ts")),
+  }));
+  session.setAccessToken("test-session");
+  const codes = ["education_training", "dari_language_literature", "pashto_language_literature", "arabic_language", "science", "mathematics", "english_language_literature", "social_sciences", "religious_sciences", "computer"];
+  const rows = codes.map((code, index) => ({ id: 107 + index * 3, code, display_name: "دیپارتمنت" }));
+  globalThis.fetch = async (url, init) => { requests.push({ url, init }); return Response.json(rows); };
+  assert.deepEqual(await departments.getDepartments(), rows);
+  assert.equal(requests[0].url, "https://information-system-989w.onrender.com/api/departments");
+  assert.equal(requests[0].init.headers.get("Authorization"), "Bearer test-session");
+});
+
+test("departments do not invent local rows for an empty catalogue or hide an authentication failure", async () => {
+  const departments = await import(moduleUrl(resolve(root, "api/departments.ts")));
+  session.setAccessToken("test-session");
+  globalThis.fetch = async () => Response.json([]);
+  assert.deepEqual(await departments.getDepartments(), []);
+  globalThis.fetch = async () => Response.json({ detail: "اطلاعات ورود معتبر نیست." }, { status: 401 });
+  await assert.rejects(departments.getDepartments(), { status: 401 });
+  assert.equal(session.getAccessToken(), null);
 });

@@ -52,11 +52,75 @@
    python -m alembic -c alembic.ini upgrade head --sql
    ```
 
-8. Seed the predefined departments after applying migrations.
+8. Migrations initialize the ten predefined departments automatically. The
+   optional repair command below inserts missing codes only; repeated runs do
+   not create duplicates or modify existing rows.
 
    ```powershell
    python -m app.db.seed_departments
    ```
+
+## Production departments: Render, Neon, and Vercel
+
+Migration `20260927_0013` fixes the previous local-only initialization: older
+migrations created the department table, but the catalogue required a manual
+seed. The new migration inserts the ten approved English codes with
+`ON CONFLICT (code) DO NOTHING`. It does not update/delete existing departments,
+restore deliberately deleted departments, or change employee/member references.
+Its downgrade retains the data for the same reason. No numeric IDs are assumed.
+
+Configure Render's backend root directory as `backend`. Its environment must
+point to the intended Neon database using `POSTGRES_HOST`, `POSTGRES_PORT`,
+`POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`; this application's
+current configuration does **not** read `DATABASE_URL`. Keep all credentials
+in Render's environment, never in Vercel's `VITE_*` variables. Retain the
+existing secure `SECRET_KEY` and JWT settings.
+
+Apply migrations **against that same Neon database**, from `backend`, before
+starting the new backend version:
+
+```sh
+python -m alembic -c alembic.ini upgrade head
+python -m alembic -c alembic.ini current
+```
+
+Use the upgrade command as Render's **Pre-Deploy Command** where available
+(paid web services), or run it once through an authorized deployment job/shell
+before starting the service. `--sql` only generates SQL; it does not apply the
+migration. Do not run concurrent Alembic upgrades from multiple workers. Normal
+API startup remains read-only with respect to department initialization.
+
+For this deployment, configure:
+
+- Render: `CORS_ORIGINS_RAW=https://information-system-lake.vercel.app`.
+- Vercel: `VITE_API_BASE_URL=https://information-system-989w.onrender.com`.
+  Use the backend origin, **not** a URL ending in `/api`; request paths already
+  include `/api`. A trailing slash is safely normalized by the shared client.
+  Vite embeds this variable at build time, so redeploy Vercel after changing it.
+
+Log in normally, then check `/api/departments` in the browser's Network panel:
+
+- `200` with ten rows: fresh database initialization and authenticated loading
+  are working. The UI uses database-provided IDs and centralized Persian labels.
+- `200` with `[]`: check migration revision and that Render is connecting to
+  the correct Neon database/branch. Also inspect whether rows were deliberately
+  marked deleted; initialization does not silently restore them.
+- `401`: log in again/check the bearer session; the catalogue remains protected.
+- A browser CORS error: check the exact allowed frontend origin.
+- `5xx`: inspect Render logs and database configuration; do not treat an API
+  failure as an empty catalogue or replace it with fake frontend departments.
+
+Optional database verification in the Neon SQL editor (read-only):
+
+```sql
+SELECT version_num FROM alembic_version;
+SELECT id, code, deleted_at FROM departments ORDER BY code;
+```
+
+If migration `0013` has already been applied and missing codes need repair,
+`python -m app.db.seed_departments` is also safe to repeat. It uses a database
+unique-key conflict guard, so competing seed runs cannot create duplicates.
+Existing codes, including soft-deleted ones, are left untouched.
 
 ## Authentication and user administration
 

@@ -68,11 +68,14 @@ class DepartmentService:
 
     def seed_predefined_departments(self, db: Session) -> int:
         created_count = 0
-        for code in DEPARTMENT_DISPLAY_LABELS:
-            if self.repository.get_by_code(db, code, include_deleted=True) is None:
-                self.repository.create(db, code=code)
-                created_count += 1
-        db.commit()
+        try:
+            for code in DEPARTMENT_DISPLAY_LABELS:
+                if self.repository.create_if_missing(db, code=code):
+                    created_count += 1
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
         return created_count
 
     def _ensure_code_available(self, db: Session, code: str) -> None:

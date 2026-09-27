@@ -1,10 +1,29 @@
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as postgres_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from app.models.department import Department
 
 
 class DepartmentRepository:
+    def create_if_missing(self, db: Session, *, code: str) -> bool:
+        """Insert by stable code atomically, leaving existing rows untouched."""
+        dialect = db.get_bind().dialect.name
+        if dialect == "postgresql":
+            insert = postgres_insert
+        elif dialect == "sqlite":
+            insert = sqlite_insert
+        else:
+            raise RuntimeError("Department initialization requires PostgreSQL or SQLite.")
+        statement = (
+            insert(Department)
+            .values(code=code)
+            .on_conflict_do_nothing(index_elements=[Department.code])
+            .returning(Department.id)
+        )
+        return db.scalar(statement) is not None
+
     def list_active(self, db: Session) -> list[Department]:
         statement = (
             select(Department)
