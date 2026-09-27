@@ -283,16 +283,18 @@ def test_audit_ordering_pagination_filters_and_inclusive_dates(client: TestClien
     response = client.get("/api/audit-logs", headers=admin_headers)
     assert [row["id"] for row in response.json()["items"]] == [entry.id for entry in reversed(entries)]
     assert client.get("/api/audit-logs?page_size=1&page=2", headers=admin_headers).json()["items"][0]["id"] == entries[1].id
-    today = date.today().isoformat()
+    # Audit date filters use UTC days, even when the local day has changed.
+    audit_day = datetime.now(timezone.utc).date()
+    today = audit_day.isoformat()
     result = client.get(f"/api/audit-logs?user_id={authenticated_user.id}&entity_type=employee&entity_id={first['id']}&action=UPDATE&date_from={today}&date_to={today}", headers=admin_headers)
     assert result.status_code == 200
     assert result.json()["total"] == 1
     assert result.json()["items"][0]["id"] == entries[2].id
     assert client.get(f"/api/audit-logs?user_id={audit_admin.id}", headers=admin_headers).json()["total"] == 0
     assert client.get(f"/api/audit-logs?entity_id={second['id']}&action=UPDATE", headers=admin_headers).json()["total"] == 0
-    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    tomorrow = (audit_day + timedelta(days=1)).isoformat()
     assert client.get(f"/api/audit-logs?date_from={tomorrow}", headers=admin_headers).json()["total"] == 0
-    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    yesterday = (audit_day - timedelta(days=1)).isoformat()
     assert client.get(f"/api/audit-logs?date_to={yesterday}", headers=admin_headers).json()["total"] == 0
     ascending = client.get("/api/audit-logs?sort_order=asc", headers=admin_headers).json()
     assert [row["id"] for row in ascending["items"]] == [entry.id for entry in entries]
