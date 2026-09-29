@@ -1,5 +1,6 @@
 import type { AmirObservationDetail, TeacherObservationDetail } from "../../api/observations";
 import { getJobTitleLabel } from "../../lib/employeeLabels";
+import { formatJalaliDate } from "../../lib/date";
 import { formatAmirCompetency, formatTeacherCompetency, getFinalResultLabel } from "../../lib/observationLabels";
 import { AppDialog } from "../shared/AppDialog";
 import { ErrorState, LoadingState } from "../shared/states";
@@ -43,14 +44,14 @@ export function ObservationDetailDialog({ open, onOpenChange, kind, identity, da
     ] : [];
 
   return (
-    <AppDialog open={open} onOpenChange={onOpenChange} layer="nested" size="lg" title="جزئیات مشاهده" description={isTeacher ? "ارزیابی معلم" : "ارزیابی آمر یا سرمعلم"} footer={<Button variant="secondary" onClick={() => onOpenChange(false)}>بستن</Button>}>
+    <AppDialog open={open} onOpenChange={onOpenChange} layer="nested" size="lg" title="جزئیات مشاهده" description={isTeacher ? "ارزیابی معلم" : "ارزیابی آمر، مدیر یا سرمعلم"} footer={<Button variant="secondary" onClick={() => onOpenChange(false)}>بستن</Button>}>
       {loading ? <LoadingState title="در حال دریافت جزئیات مشاهده" description="لطفاً چند لحظه صبر کنید." /> : error ? <ErrorState title="دریافت جزئیات ممکن نشد" description={error} /> : data && identity ? <div className="space-y-6">
         <section className="grid gap-3 rounded-xl border border-line bg-slate-50/70 p-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
           <Detail label="کارمند" value={identity.employeeName} />
           <Detail label="ولد" value={identity.fatherName} />
           {identity.workplace ? <Detail label="محل وظیفه" value={identity.workplace} /> : null}
           {identity.jobTitleCode ? <Detail label="عنوان وظیفه" value={getJobTitleLabel(identity.jobTitleCode)} /> : null}
-          <Detail label="تاریخ مشاهده" value={data.observation_date} ltr />
+          <Detail label="تاریخ مشاهده" value={formatJalaliDate(data.observation_date)} />
           <Detail label="صنف مشاهده شده" value={data.observed_class} />
           <Detail label="مضمون" value={data.subject} />
           <Detail label="مشاهده‌کننده" value={`${data.observer.name} ${data.observer.surname}`} />
@@ -72,5 +73,5 @@ export function ObservationDetailDialog({ open, onOpenChange, kind, identity, da
 }
 
 function Detail({ label, value, ltr = false }: { label: string; value: string; ltr?: boolean }) {
-  return <div className="rounded-lg border border-line bg-white px-3 py-2.5"><dt className="text-xs text-muted">{label}</dt><dd dir={ltr ? "ltr" : undefined} className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-ink">{value}</dd></div>;
+  return <div className="rounded-lg border border-line bg-[hsl(var(--surface)_/_0.76)] px-3 py-2.5"><dt className="text-xs text-muted">{label}</dt><dd dir={ltr ? "ltr" : undefined} className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-ink">{value}</dd></div>;
 }

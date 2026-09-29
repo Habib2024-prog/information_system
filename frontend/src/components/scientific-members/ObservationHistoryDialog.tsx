@@ -5,13 +5,14 @@ import { getEmployee } from "../../api/employees";
 import { getAmirObservation, getTeacherObservation, type AmirObservationDetail, type TeacherObservationDetail } from "../../api/observations";
 import { emptyObservationHistoryFilters, exportObservationHistory, getObservationHistory, type ObservationHistoryFilters, type ObservationHistoryItem } from "../../api/scientificMembers";
 import { getJobTitleLabel } from "../../lib/employeeLabels";
-import { formatApiDate } from "../../lib/date";
+import { formatJalaliDate } from "../../lib/date";
 import { getFinalResultLabel, getObservationTypeLabel } from "../../lib/observationLabels";
 import type { ScientificMember } from "../../types/api";
 import { ObservationDetailDialog } from "../observations/ObservationDetailDialog";
 import { AppDialog } from "../shared/AppDialog";
 import { DataTableShell } from "../shared/DataTableShell";
 import { isValidDateRange } from "../shared/DateRangeFilter";
+import { JalaliDateInput } from "../shared/JalaliDateInput";
 import { PaginationControls } from "../shared/PaginationControls";
 import { SearchableSelect } from "../shared/SearchableSelect";
 import { EmptyState, ErrorState, LoadingState } from "../shared/states";
@@ -19,7 +20,7 @@ import { Button } from "../ui/button";
 
 interface Props { member: ScientificMember | null; onOpenChange: (open: boolean) => void; }
 type DetailData = TeacherObservationDetail | AmirObservationDetail;
-const typeOptions = [{ value: "", label: "همه انواع مشاهده" }, { value: "teacher", label: "مشاهده معلم" }, { value: "amir_senior_teacher", label: "مشاهده آمر / سرمعلم" }];
+const typeOptions = [{ value: "", label: "همه انواع مشاهده" }, { value: "teacher", label: "مشاهده معلم" }, { value: "amir_senior_teacher", label: "مشاهده آمر / مدیر / سرمعلم" }];
 const resultOptions = [{ value: "", label: "همه نتیجه‌ها" }, { value: "needs_improvement", label: "نیازمند بهبود" }, { value: "has_capability", label: "دارای قابلیت" }, { value: "basic_capability", label: "قابلیت ابتدایی" }, { value: "applied_capability", label: "قابلیت بکارگیری" }, { value: "mastery", label: "تسلط بر قابلیت / مسلط بر قابلیت" }];
 
 export function ObservationHistoryDialog({ member, onOpenChange }: Props) {
@@ -64,8 +65,8 @@ function HistoryFilters({ filters, exporting, onExport, onChange, onClear }: {
     <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
       <FilterField label="نوع مشاهده"><SearchableSelect value={filters.observation_type} options={typeOptions} onChange={(value) => onChange("observation_type", value)} placeholder="همه انواع مشاهده" /></FilterField>
       <FilterField label="نتیجه"><SearchableSelect value={filters.final_result_code} options={resultOptions} onChange={(value) => onChange("final_result_code", value)} placeholder="همه نتیجه‌ها" /></FilterField>
-      <FilterField label="از تاریخ"><input className="input" type="date" value={filters.date_from} onChange={(event) => onChange("date_from", event.target.value)} /></FilterField>
-      <FilterField label="تا تاریخ"><input className="input" type="date" value={filters.date_to} onChange={(event) => onChange("date_to", event.target.value)} /></FilterField>
+      <FilterField label="از تاریخ"><JalaliDateInput aria-label="از تاریخ سوابق مشاهدات" value={filters.date_from} onChange={(value) => onChange("date_from", value)} /></FilterField>
+      <FilterField label="تا تاریخ"><JalaliDateInput aria-label="تا تاریخ سوابق مشاهدات" value={filters.date_to} onChange={(value) => onChange("date_to", value)} /></FilterField>
       <FilterField label="شماره کارمند"><input className="input" inputMode="numeric" value={filters.employee_id} onChange={(event) => onChange("employee_id", event.target.value)} /></FilterField>
     </div>
     {!isValidDateRange(filters.date_from, filters.date_to) ? <p className="mt-2 text-xs text-rose-700" role="alert">تاریخ شروع نمی‌تواند بعد از تاریخ پایان باشد.</p> : null}
@@ -92,7 +93,7 @@ function HistoryTable({ items, onDetail }: { items: ObservationHistoryItem[]; on
         </colgroup>
         <thead><tr><th>تاریخ</th><th>کارمند مشاهده‌شده</th><th>عنوان وظیفه</th><th>نوع مشاهده</th><th>مضمون</th><th>مجموع</th><th>نتیجه</th><th className="text-center">عملیات</th></tr></thead>
         <tbody>{items.map((item) => <tr key={item.observation_type + "-" + item.observation_id}>
-          <td dir="ltr" className="whitespace-nowrap tabular-nums">{formatApiDate(item.observation_date)}</td>
+          <td dir="ltr" className="whitespace-nowrap tabular-nums">{formatJalaliDate(item.observation_date)}</td>
           <td className="truncate font-medium text-ink" title={item.observed_employee_name}>{item.observed_employee_name}</td>
           <td className="truncate" title={getJobTitleLabel(item.observed_employee_job_title_code)}>{getJobTitleLabel(item.observed_employee_job_title_code)}</td>
           <td className="truncate" title={getObservationTypeLabel(item.observation_type)}>{getObservationTypeLabel(item.observation_type)}</td>
@@ -105,7 +106,7 @@ function HistoryTable({ items, onDetail }: { items: ObservationHistoryItem[]; on
     </DataTableShell>
     <div className="space-y-3 xl:hidden">{items.map((item) => <article key={item.observation_type + "-" + item.observation_id} className="surface-card p-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0"><p dir="ltr" className="whitespace-nowrap text-xs tabular-nums text-muted">{formatApiDate(item.observation_date)}</p><h2 className="mt-1 truncate text-sm font-semibold text-ink">{item.observed_employee_name}</h2><p className="mt-1 truncate text-sm text-muted">{getObservationTypeLabel(item.observation_type)} · {item.subject}</p></div>
+        <div className="min-w-0"><p dir="ltr" className="whitespace-nowrap text-xs tabular-nums text-muted">{formatJalaliDate(item.observation_date)}</p><h2 className="mt-1 truncate text-sm font-semibold text-ink">{item.observed_employee_name}</h2><p className="mt-1 truncate text-sm text-muted">{getObservationTypeLabel(item.observation_type)} · {item.subject}</p></div>
         <HistoryResultBadge result={getFinalResultLabel(item.final_result_code, item.observation_type)} />
       </div>
       <div className="mt-3 flex items-center justify-between border-t border-line pt-3"><span dir="ltr" className="whitespace-nowrap text-sm tabular-nums text-muted">{Number(item.total_score).toFixed(2)}</span><Button variant="ghost" className="h-8 px-2" onClick={() => onDetail(item)}><Eye size={15} />جزئیات</Button></div>

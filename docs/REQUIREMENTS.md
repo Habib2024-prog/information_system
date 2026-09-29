@@ -368,9 +368,17 @@ Export requirements:
 - The actor comes from the authenticated account, never the submitted payload.
   The IP is `Request.client.host` when available; do not implement additional
   forwarded-header trust rules.
-- Creation records have a null before snapshot and a created-record after
-  snapshot. Updates record both states; deletion records the pre-deletion state
-  and may include the marked-deleted state.
+- New creation/deletion records retain only compact identifying information,
+  not full record snapshots or long text. Entity IDs, actors, actions, and
+  timestamps are stored once in the audit row, not duplicated in details.
+- Updates retain only changed business fields as `changes[field] = {old, new}`.
+  Unchanged fields and automatic modification timestamps are omitted. No-op
+  updates do not generate misleading activity entries.
+- Compact details reuse the existing `metadata` JSONB column. Historical
+  before/after snapshots remain intact and readable; their changed fields can
+  be derived for display without rewriting or deleting existing logs.
+- Activity details use Dari field/value labels, structured old/new changes,
+  and a responsive scrollable dialog rather than raw JSON or backend keys.
 - Audit writes and business changes share a transaction. A failed operation or
   audit write must not leave a successful-action record or partially committed
   business changes. Failed logins are not recorded.

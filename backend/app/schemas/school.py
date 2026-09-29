@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from typing import Literal
 
@@ -89,6 +90,21 @@ class SchoolWrite(BaseModel):
     school_needs: str | None = None
     school_equipment: str | None = None
     grade_statistics: list[SchoolGradeStatisticWrite] = Field(default_factory=list)
+
+    @field_validator("school_head_phone")
+    @classmethod
+    def validate_school_head_phone(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        value = value.strip()
+        # Keep local/international formatting and leading zeroes as text.
+        digits = "0-9۰-۹٠-٩"
+        group = rf"(?:[{digits}]+|\([{digits}]+\))"
+        pattern = rf"\+?{group}(?: *(?:[.-] *)?{group})*"
+        digit_count = len(re.findall(rf"[{digits}]", value))
+        if not 7 <= digit_count <= 15 or re.fullmatch(pattern, value) is None:
+            raise ValueError("شماره تماس معتبر نیست.")
+        return value
 
     @field_validator("school_type_code", "gender_type_code")
     @classmethod

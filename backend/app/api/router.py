@@ -10,6 +10,7 @@ from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.employees import router as employees_router
 from app.api.routes.observation_exports import router as observation_exports_router
 from app.api.routes.observation_lists import router as observation_lists_router
+from app.api.routes.profile_images import router as profile_images_router
 from app.api.routes.scientific_members import router as scientific_members_router
 from app.api.routes.schools import router as schools_router
 from app.api.routes.teacher_observations import router as teacher_observations_router
@@ -18,6 +19,7 @@ from app.api.routes.users import router as users_router
 api_router = APIRouter(prefix="/api")
 api_router.include_router(auth_router)
 api_router.include_router(users_router)
+api_router.include_router(profile_images_router)
 api_router.include_router(audit_logs_router)
 for business_router in (
     amir_observations_router, dashboard_router, departments_router, employees_router,

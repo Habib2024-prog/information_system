@@ -1,10 +1,17 @@
-import { apiGet, apiRequest } from "./client";
+import { DEFAULT_PAGE_SIZE } from "../lib/pagination";
+import { apiFetch, apiGet, apiRequest } from "./client";
 import type { PaginatedResponse } from "../types/api";
 import type { ManagedUser, UserCreatePayload, UserPayload } from "../types/auth";
 
-export const getUsers = (page = 1, pageSize = 20) => apiGet<PaginatedResponse<ManagedUser>>(`/api/users?page=${page}&page_size=${pageSize}`);
+export const getUsers = (page = 1, pageSize = DEFAULT_PAGE_SIZE) => apiGet<PaginatedResponse<ManagedUser>>(`/api/users?page=${page}&page_size=${pageSize}`);
 export const getUser = (id: number) => apiGet<ManagedUser>(`/api/users/${id}`);
 export const createUser = (payload: UserCreatePayload) => apiRequest<ManagedUser>("/api/users", { method: "POST", body: JSON.stringify(payload) });
 export const updateUser = (id: number, payload: UserPayload) => apiRequest<ManagedUser>(`/api/users/${id}`, { method: "PUT", body: JSON.stringify(payload) });
 export const deleteUser = (id: number) => apiRequest<void>(`/api/users/${id}`, { method: "DELETE" });
 export const changeUserPassword = (id: number, newPassword: string) => apiRequest<void>(`/api/users/${id}/password`, { method: "PUT", body: JSON.stringify({ new_password: newPassword }) });
+export async function uploadUserProfileImage(id: number, image: File): Promise<ManagedUser> {
+  const form = new FormData();
+  form.append("image", image);
+  return (await apiFetch(`/api/users/${id}/profile-image`, { method: "PUT", body: form })).json() as Promise<ManagedUser>;
+}
+export const removeUserProfileImage = (id: number) => apiRequest<ManagedUser>(`/api/users/${id}/profile-image`, { method: "DELETE" });

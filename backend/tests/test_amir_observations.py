@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.common.employee_codes import (
     AMIR_JOB_TITLE_CODE,
+    MANAGER_JOB_TITLE_CODE,
     SENIOR_TEACHER_JOB_TITLE_CODE,
     TEACHER_JOB_TITLE_CODE,
 )
@@ -139,6 +140,21 @@ def test_create_observation_for_valid_senior_teacher(
     assert observation["employee_id"] == employee["id"]
 
 
+def test_create_observation_for_valid_manager(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    employee, observer = _eligible_employee_and_observer(
+        client,
+        db_session,
+        job_title_code=MANAGER_JOB_TITLE_CODE,
+    )
+
+    observation = _create_observation(client, employee["id"], observer["id"])
+
+    assert observation["employee_id"] == employee["id"]
+
+
 def test_employee_can_have_multiple_amir_observations(client: TestClient, db_session: Session) -> None:
     employee, observer = _eligible_employee_and_observer(client, db_session)
 
@@ -163,19 +179,19 @@ def test_rejects_teacher_and_unsupported_job_titles(
     department_id = _science_department_id(db_session)
     observer = _create_observer(client, department_id)
     teacher = _create_employee(client, job_title_code=TEACHER_JOB_TITLE_CODE)
-    manager = _create_employee(client, job_title_code="manager")
+    unsupported = _create_employee(client, job_title_code="unsupported_title")
 
     teacher_response = client.post(
         f"/api/employees/{teacher['id']}/amir-observations",
         json=_observation_payload(observer["id"]),
     )
-    manager_response = client.post(
-        f"/api/employees/{manager['id']}/amir-observations",
+    unsupported_response = client.post(
+        f"/api/employees/{unsupported['id']}/amir-observations",
         json=_observation_payload(observer["id"]),
     )
 
     assert teacher_response.status_code == 422
-    assert manager_response.status_code == 422
+    assert unsupported_response.status_code == 422
 
 
 def test_rejects_invalid_or_soft_deleted_employee(client: TestClient, db_session: Session) -> None:

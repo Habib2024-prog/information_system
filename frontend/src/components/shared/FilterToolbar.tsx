@@ -27,9 +27,9 @@ export function FilterToolbar({
   className,
 }: FilterToolbarProps) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  return <section className={cn("glass-surface rounded-xl", compact ? "p-3" : "p-3.5 sm:p-4", className)} aria-label="فیلترها">
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
-      <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">{children}</div>
+  return <section className={cn("surface-card min-w-0 max-w-full", compact ? "p-3" : "p-3.5 sm:p-4", className)} aria-label="فیلترها">
+    <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
+      <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 [&>*]:min-w-0">{children}</div>
       <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
         {advanced ? <Button className="h-10" variant="secondary" aria-expanded={advancedOpen} onClick={() => setAdvancedOpen((value) => !value)}>
           <Filter size={16} />

@@ -88,7 +88,7 @@ def test_login_and_current_user(client: TestClient, db_session: Session) -> None
     assert response.status_code == 200
     assert response.json() == {
         "id": user.id, "username": user.username, "full_name": user.full_name,
-        "role_code": "user", "is_active": True,
+        "role_code": "user", "is_active": True, "profile_image_url": None,
     }
     assert_no_secrets(response)
 

@@ -34,7 +34,9 @@ class SchoolRepository:
 
         sort_column = getattr(School, sort_by)
         order_expression = sort_column.desc() if sort_order == "desc" else sort_column.asc()
-        schools = list(db.scalars(statement.order_by(order_expression).offset(offset).limit(limit)))
+        # A unique tie-breaker prevents equal sort values from shifting across pages.
+        id_order = School.id.desc() if sort_order == "desc" else School.id.asc()
+        schools = list(db.scalars(statement.order_by(order_expression, id_order).offset(offset).limit(limit)))
         return schools, total
 
     def get_by_id(self, db: Session, school_id: int) -> School | None:

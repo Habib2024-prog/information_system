@@ -5,6 +5,7 @@ import { roleOptions } from "../../lib/authLabels";
 import type { ManagedUser, RoleCode, UserPayload } from "../../types/auth";
 import { AppDialog } from "../shared/AppDialog";
 import { SearchableSelect } from "../shared/SearchableSelect";
+import { UserAvatar } from "../shared/UserAvatar";
 import { Button } from "../ui/button";
 
 interface Props { open: boolean; user?: ManagedUser; onOpenChange: (open: boolean) => void; onSaved: (user: ManagedUser) => void; }
@@ -41,7 +42,7 @@ export function UserFormDialog({ open, user, onOpenChange, onSaved }: Props) {
   };
   return <AppDialog open={open} onOpenChange={(next) => { if (!saving) onOpenChange(next); }} title={user ? "ویرایش کاربر" : "افزودن کاربر"} description="اطلاعات کاربر و سطح دسترسی او را تعیین کنید." size="md" footer={<><Button disabled={saving} onClick={() => onOpenChange(false)}>انصراف</Button><Button variant="primary" form="user-form" type="submit" disabled={saving}>{saving ? "در حال ثبت" : user ? "ذخیره تغییرات" : "ثبت کاربر"}</Button></>}>
     <form id="user-form" noValidate onSubmit={submit} className="space-y-5">
-      <section className="space-y-4" aria-labelledby="user-information"><h2 id="user-information" className="text-sm font-semibold">اطلاعات کاربر</h2>
+      <section className="space-y-4" aria-labelledby="user-information"><div className="flex items-center gap-3"><UserAvatar user={user ?? { full_name: values.full_name || "کاربر", profile_image_url: null }} size="md" /><h2 id="user-information" className="text-sm font-semibold">اطلاعات کاربر</h2></div>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block"><span className="mb-1.5 block text-sm font-medium">نام کاربری</span><input className="input" name="username" dir="auto" autoComplete="off" disabled={saving} value={values.username} onChange={(event) => set("username", event.target.value)} aria-invalid={Boolean(errors.username)} />{errors.username ? <FieldError message={errors.username} /> : null}</label>
           <label className="block"><span className="mb-1.5 block text-sm font-medium">نام کامل</span><input className="input" disabled={saving} value={values.full_name} onChange={(event) => set("full_name", event.target.value)} aria-invalid={Boolean(errors.full_name)} />{errors.full_name ? <FieldError message={errors.full_name} /> : null}</label>

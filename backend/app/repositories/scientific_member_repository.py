@@ -34,7 +34,9 @@ class ScientificMemberRepository:
 
         sort_column = getattr(ScientificMember, sort_by)
         order_expression = sort_column.desc() if sort_order == "desc" else sort_column.asc()
-        members = list(db.scalars(statement.order_by(order_expression).offset(offset).limit(limit)))
+        # A unique tie-breaker prevents equal sort values from shifting across pages.
+        id_order = ScientificMember.id.desc() if sort_order == "desc" else ScientificMember.id.asc()
+        members = list(db.scalars(statement.order_by(order_expression, id_order).offset(offset).limit(limit)))
         return members, total
 
     def get_by_id(self, db: Session, member_id: int) -> ScientificMember | None:

@@ -508,9 +508,9 @@ into a common parent table.
 | `entity_type` | `TEXT` | Yes | none | Stable internal table/entity type code |
 | `entity_id` | `BIGINT` | No | `NULL` | Affected entity or export scope ID; global exports have no single entity ID; generic reference has no SQL foreign key |
 | `description` | `TEXT` | Yes | none | Persian/Dari action description using centralized mappings |
-| `before_data` | `JSONB` | No | `NULL` | Sanitized pre-change record snapshot; null for creation |
-| `after_data` | `JSONB` | No | `NULL` | Sanitized resulting record snapshot; never credentials |
-| `metadata` | `JSONB` | No | `NULL` | Effective export filters/scopes and sorting; never workbook content |
+| `before_data` | `JSONB` | No | `NULL` | Historical snapshots only; preserved, never populated for new logs |
+| `after_data` | `JSONB` | No | `NULL` | Historical snapshots only; preserved, never populated for new logs |
+| `metadata` | `JSONB` | No | `NULL` | Compact `changes` or `record` details, or effective export filters/scopes and sorting; never workbook content |
 | `ip_address` | `TEXT` | No | `NULL` | Request client host when available; no custom forwarded-IP handling |
 | `created_at` | `TIMESTAMPTZ` | Yes | `CURRENT_TIMESTAMP` | Time the audit event was recorded |
 
@@ -539,6 +539,16 @@ API access, with no create/edit/delete endpoints for logs. Retention remains
 pending. Business changes and their audit rows commit together; export logs
 are committed after successful workbook generation. Credentials are recursively
 excluded before insertion and again before serialization.
+
+**Compact storage:** New updates use `metadata.changes`, containing only
+changed fields with `old` and `new` values. No-op updates and changes only to
+automatic `updated_at` do not create audit entries. New CREATE/DELETE actions
+use `metadata.record` with an entity-specific allowlist of identifying fields;
+large notes and full record copies are omitted. The entity ID, actor, action,
+and timestamp remain on the audit row and are not repeated in this object.
+The API exposes `changes` additively from this existing JSONB column and keeps
+legacy snapshot fields available. No schema migration, historical rewrite,
+retention deletion, or general JSONB GIN index is needed for this change.
 
 ## 6. Relationship rationale
 

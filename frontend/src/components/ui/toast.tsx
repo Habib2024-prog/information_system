@@ -12,7 +12,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     window.setTimeout(() => setToasts((items) => items.filter((item) => item.id !== id)), 3500);
   }, []);
   const value = useMemo(() => ({ showToast }), [showToast]);
-  return <ToastContext.Provider value={value}>{children}<div className="fixed bottom-5 left-5 z-[60] space-y-2" aria-live="polite">{toasts.map((toast) => <div key={toast.id} className="flex items-center gap-2 rounded-lg border border-line bg-white px-4 py-3 text-sm shadow-panel"><span className={toast.kind === "success" ? "text-emerald-700" : "text-rose-700"}>{toast.kind === "success" ? <CircleCheck size={18} /> : <CircleX size={18} />}</span>{toast.message}</div>)}</div></ToastContext.Provider>;
+  return <ToastContext.Provider value={value}>{children}<div className="fixed bottom-5 left-4 z-[70] w-[min(24rem,calc(100vw-2rem))] space-y-2" aria-live="polite">{toasts.map((toast) => <div key={toast.id} className="elevated-surface flex items-start gap-3 rounded-xl px-4 py-3 text-sm font-medium leading-6 text-ink"><span className={toast.kind === "success" ? "mt-0.5 text-emerald-600" : "mt-0.5 text-rose-600"}>{toast.kind === "success" ? <CircleCheck size={19} /> : <CircleX size={19} />}</span><span className="min-w-0">{toast.message}</span></div>)}</div></ToastContext.Provider>;
 }
 
 export function useToast() {

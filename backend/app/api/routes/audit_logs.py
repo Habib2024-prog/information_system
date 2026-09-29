@@ -20,7 +20,7 @@ def list_audit_logs(
     action: AuditAction | None = None, entity_type: AuditEntity | None = None,
     entity_id: int | None = Query(default=None, ge=1), date_from: date | None = None,
     date_to: date | None = None, page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=10, ge=1, le=100),
     sort_by: AuditSortField = "created_at", sort_order: SortOrder = "desc",
 ) -> AuditLogListResponse:
     if date_from and date_to and date_from > date_to:

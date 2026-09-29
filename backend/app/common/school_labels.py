@@ -1,6 +1,12 @@
 from typing import Final
 
 
+SCHOOL_SERVICE_COUNT_LABELS: Final[dict[str, str]] = {
+    "incoming_service_teacher_count": "خدمتی ورودی",
+    "outgoing_service_teacher_count": "خدمتی خروجی",
+}
+
+
 SCHOOL_TYPE_DISPLAY_LABELS: Final[dict[str, str]] = {
     "high_school": "لیسه",
     "middle_school": "متوسطه",

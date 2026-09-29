@@ -51,6 +51,7 @@ class CurrentUserRead(BaseModel):
     full_name: str
     role_code: RoleCode
     is_active: bool
+    profile_image_url: str | None = None
 
 
 class UserRead(CurrentUserRead):

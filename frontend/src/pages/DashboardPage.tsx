@@ -1,41 +1,45 @@
-import { Building2, ClipboardCheck, GraduationCap, School, UsersRound } from "lucide-react";
+import { ClipboardCheck, GraduationCap, School, UsersRound } from "lucide-react";
 
-import { observationCountUnavailable } from "../api/observations";
+import { useAuth } from "../auth/AuthContext";
+import { ObservationOverview } from "../components/dashboard/ObservationOverview";
+import { RecentActivities } from "../components/dashboard/RecentActivities";
 import { MetricCard } from "../components/shared/MetricCard";
-import { EmptyState, ErrorState } from "../components/shared/states";
+import { ErrorState } from "../components/shared/states";
 import { PageHeader } from "../components/shared/PageHeader";
 import { SectionCard } from "../components/shared/SectionCard";
-import { useDashboardMetrics } from "../hooks/useDashboardMetrics";
+import { useDashboardActivities, useDashboardMetrics } from "../hooks/useDashboardMetrics";
 
 export function DashboardPage() {
-  const { metrics, isLoading, hasError } = useDashboardMetrics();
+  const { isAdmin } = useAuth();
+  const { summary, isLoading, hasError, reload } = useDashboardMetrics();
+  const activity = useDashboardActivities(isAdmin);
+  const totals = summary?.totals;
 
   return (
     <div className="space-y-7">
       <PageHeader
         title="داشبورد"
-        description="نمای کلی از اطلاعات ثبت‌شده در سامانه مدیریت معلومات."
+        description="نمای کلی از اطلاعات ثبت‌شده در سیستم مدیریت معلومات."
       />
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5" aria-label="خلاصه اطلاعات">
-        <MetricCard title="تعداد کارمندان" icon={UsersRound} value={metrics.employees} isLoading={isLoading} />
-        <MetricCard title="تعداد دیپارتمنت‌ها" icon={Building2} value={metrics.departments} isLoading={isLoading} />
-        <MetricCard title="تعداد اعضای علمی" icon={GraduationCap} value={metrics.scientificMembers} isLoading={isLoading} />
-        <MetricCard title="تعداد مشاهدات" icon={ClipboardCheck} isLoading={false} isUnavailable={observationCountUnavailable} />
-        <MetricCard title="تعداد مکاتب" icon={School} value={metrics.schools} isLoading={isLoading} />
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="خلاصه اطلاعات">
+        <MetricCard title="کارمندان دیپارتمنت" icon={UsersRound} value={totals?.employees} isLoading={isLoading} isUnavailable={hasError} />
+        <MetricCard title="اعضای علمی" icon={GraduationCap} value={totals?.scientific_members} isLoading={isLoading} isUnavailable={hasError} />
+        <MetricCard title="مکاتب" icon={School} value={totals?.schools} isLoading={isLoading} isUnavailable={hasError} />
+        <MetricCard title="مشاهدات" icon={ClipboardCheck} value={totals?.observations} isLoading={isLoading} isUnavailable={hasError} />
       </section>
       {hasError ? (
-        <ErrorState title="برخی اطلاعات در دسترس نیست" description="اتصال با سرویس اطلاعات را بررسی کنید. کارت‌های دارای داده همچنان نمایش داده می‌شوند." />
+        <ErrorState title="دریافت آمار ممکن نشد" description="اتصال با سرویس اطلاعات را بررسی کنید." onRetry={reload} />
       ) : null}
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid min-w-0 items-start gap-5 xl:grid-cols-2">
         <SectionCard>
           <h2 className="text-base font-bold text-ink">فعالیت‌های اخیر</h2>
-          <p className="mt-1 text-sm text-muted">این بخش پس از نهایی‌شدن منبع داده فعالیت‌ها نمایش داده می‌شود.</p>
-          <EmptyState className="mt-5" title="فعالیتی برای نمایش نیست" description="داده فعالیت‌های اخیر هنوز به این بخش متصل نشده است." />
+          <p className="mb-5 mt-1 text-sm text-muted">آخرین فعالیت‌های ثبت‌شده، از جدیدترین به قدیمی‌ترین.</p>
+          <RecentActivities items={activity.activities} hasAccess={isAdmin} isLoading={activity.isLoading} hasError={activity.hasError} onRetry={activity.reload} />
         </SectionCard>
         <SectionCard>
           <h2 className="text-base font-bold text-ink">نمای کلی مشاهدات</h2>
-          <p className="mt-1 text-sm text-muted">خلاصه مشاهدات در نسخه‌های بعدی، براساس داده‌های واقعی، ارائه می‌شود.</p>
-          <EmptyState className="mt-5" title="اطلاعاتی برای نمایش نیست" description="هنوز منبع آماری واحد برای این نمای کلی در دسترس نیست." />
+          <p className="mb-5 mt-1 text-sm text-muted">مشاهدات فعال، براساس نوع مشاهده و نتیجه نهایی ثبت‌شده.</p>
+          <ObservationOverview items={summary?.observation_overview ?? []} isLoading={isLoading} hasError={hasError} onRetry={reload} />
         </SectionCard>
       </div>
     </div>

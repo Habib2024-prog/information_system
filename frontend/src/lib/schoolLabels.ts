@@ -4,6 +4,11 @@ export const schoolTypeLabels: Record<string, string> = {
   primary_school: "ابتداییه",
 };
 
+export const schoolServiceCountLabels = {
+  incoming_service_teacher_count: "خدمتی ورودی",
+  outgoing_service_teacher_count: "خدمتی خروجی",
+} as const;
+
 export const genderTypeLabels: Record<string, string> = {
   boys: "پسرانه",
   girls: "دخترانه",

@@ -6,6 +6,7 @@ from app.core.security import (
 from app.repositories.user_repository import UserRepository
 from app.schemas.auth import LoginRequest, TokenResponse
 from app.schemas.user import CurrentUserRead
+from app.services.user_presenter import to_current_user_read
 from app.common.audit_codes import AuditAction, AuditEntity
 from app.services.audit_service import AuditContext, audit_service
 
@@ -26,7 +27,7 @@ class AuthService:
         valid = verify_password(data.password.get_secret_value(), password_hash)
         if not active or not valid:
             raise InvalidCredentialsError
-        response = TokenResponse(access_token=create_access_token(user.id), user=CurrentUserRead.model_validate(user))
+        response = TokenResponse(access_token=create_access_token(user.id), user=to_current_user_read(user))
         try:
             audit_service.log_action(db, action=AuditAction.LOGIN, entity_type=AuditEntity.USER,
                                      entity_id=user.id, context=AuditContext(user.id, ip_address))
@@ -40,4 +41,4 @@ class AuthService:
         user = self.repository.get_by_id(db, user_id)
         if user is None or not user.is_active:
             raise InvalidCredentialsError
-        return CurrentUserRead.model_validate(user)
+        return to_current_user_read(user)

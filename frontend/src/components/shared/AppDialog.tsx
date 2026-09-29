@@ -38,17 +38,17 @@ export function AppDialog({ open, onOpenChange, title, description, children, fo
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className={layer === "nested" ? "fixed inset-0 z-[90] bg-slate-950/35 backdrop-blur-[1px]" : "fixed inset-0 z-50 bg-slate-950/35 backdrop-blur-[1px]"} />
+        <Dialog.Overlay className={layer === "nested" ? "fixed inset-0 z-[90] bg-slate-950/45 backdrop-blur-[2px]" : "fixed inset-0 z-50 bg-slate-950/45 backdrop-blur-[2px]"} />
         <Dialog.Content ref={setContentElement} className={cn(
-          "fixed inset-x-2 bottom-0 mx-auto flex max-h-[calc(100vh-0.75rem)] w-auto flex-col overflow-visible rounded-t-2xl border border-line/80 bg-white/90 shadow-panel backdrop-blur-xl outline-none sm:inset-x-6 sm:top-1/2 sm:bottom-auto sm:w-[calc(100%-3rem)] sm:max-h-[calc(100vh-3rem)] sm:-translate-y-1/2 sm:rounded-xl",
+          "elevated-surface fixed inset-x-2 bottom-0 mx-auto flex max-h-[calc(100vh-0.75rem)] w-auto flex-col overflow-visible rounded-t-3xl outline-none sm:inset-x-6 sm:top-1/2 sm:bottom-auto sm:w-[calc(100%-3rem)] sm:max-h-[calc(100vh-3rem)] sm:-translate-y-1/2 sm:rounded-2xl",
           layer === "nested" ? "z-[100]" : "z-[60]",
           sizes[size],
           className,
         )}>
           <DialogMenuContainerContext.Provider value={contentElement}>
-          <div className="flex shrink-0 items-start justify-between gap-4 border-b border-line/80 bg-white/55 px-5 py-4 backdrop-blur sm:px-6">
+          <div className="flex shrink-0 items-start justify-between gap-4 border-b border-line bg-slate-50/75 px-5 py-4 sm:px-6">
             <div className="min-w-0">
-              <Dialog.Title className="text-base font-semibold leading-6 text-ink">{title}</Dialog.Title>
+              <Dialog.Title className="text-base font-bold leading-6 text-ink">{title}</Dialog.Title>
               {description ? <Dialog.Description className="mt-1 text-sm leading-6 text-muted">{description}</Dialog.Description> : null}
             </div>
             <Dialog.Close asChild>
@@ -57,8 +57,8 @@ export function AppDialog({ open, onOpenChange, title, description, children, fo
               </button>
             </Dialog.Close>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
-          {footer ? <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line/80 bg-white/80 px-5 py-4 backdrop-blur sm:px-6">{footer}</div> : null}
+          <div className="app-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
+          {footer ? <div className="flex shrink-0 items-center justify-end flex-wrap gap-2 border-t border-line bg-slate-50/70 px-5 py-4 sm:px-6">{footer}</div> : null}
           </DialogMenuContainerContext.Provider>
         </Dialog.Content>
       </Dialog.Portal>

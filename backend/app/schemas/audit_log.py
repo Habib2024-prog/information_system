@@ -22,6 +22,8 @@ class AuditLogRead(BaseModel):
     description: str
     before_data: dict | None
     after_data: dict | None
+    # Additive API field backed by metadata JSONB; legacy snapshots remain readable.
+    changes: dict | None = None
     metadata: dict | None
     ip_address: str | None
     created_at: datetime

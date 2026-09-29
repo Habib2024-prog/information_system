@@ -21,8 +21,9 @@ import { Button } from "../components/ui/button";
 import { useToast } from "../components/ui/toast";
 import { getDepartmentLabel } from "../lib/departmentLabels";
 import { getJobTitleLabel, jobTitleLabels } from "../lib/employeeLabels";
-import { formatApiDate } from "../lib/date";
+import { formatJalaliDate } from "../lib/date";
 import { getFinalResultLabel } from "../lib/observationLabels";
+import { amirObservationJobTitleCodes, getObservationFormKind } from "../lib/observationEligibility";
 import type { Department, Employee, ScientificMember } from "../types/api";
 
 type ObservationTab = "teacher" | "amir";
@@ -109,9 +110,9 @@ export function ObservationsPage() {
     } catch { showToast("حذف مشاهده با مشکل روبه‌رو شد.", "error"); }
   }
   function chooseEmployee(employee: Employee) {
-    if (employee.job_title_code === "teacher") { setSelectedEmployee(employee); setFormKind("teacher"); setEditing(null); }
-    else if (employee.job_title_code === "amir" || employee.job_title_code === "senior_teacher") { setSelectedEmployee(employee); setFormKind("amir"); setEditing(null); }
-    else showToast("برای مدیر، فرم مشاهده تعریف نشده است.", "error");
+    const kind = getObservationFormKind(employee.job_title_code);
+    if (kind) { setSelectedEmployee(employee); setFormKind(kind); setEditing(null); }
+    else showToast("برای این عنوان وظیفه، فرم مشاهده تعریف نشده است.", "error");
     setEmployeePickerOpen(false);
   }
   function openEmployeePicker() {
@@ -128,7 +129,7 @@ export function ObservationsPage() {
   }
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const typeLabel = tab === "teacher" ? "معلمین" : "آمر و سرمعلم";
+  const typeLabel = tab === "teacher" ? "معلمین" : "آمر، مدیر و سرمعلم";
   const hasActiveFilters = Object.values(filters).some((value) => value !== "");
   const activeAdvancedCount = [
     filters.observation_date_from,
@@ -138,8 +139,8 @@ export function ObservationsPage() {
     tab === "amir" ? filters.employee_job_title_code : "",
   ].filter(Boolean).length;
   return <main className="space-y-5" dir="rtl">
-    <PageHeader title="مشاهدات" description="مدیریت و مشاهده سوابق ارزیابی معلمین، آمران و سرمعلم‌ها" actions={<><Button variant="secondary" disabled={exporting || !dateRangeValid} onClick={() => void download()}>{exporting ? <LoaderCircle className="animate-spin" size={16} /> : <Download size={16} />}دانلود اکسل</Button><Button variant="primary" onClick={openEmployeePicker}><FilePlus2 size={16} />ثبت مشاهده</Button></>} />
-    <div className="inline-flex rounded-xl border border-line/80 bg-white/80 p-1 shadow-soft backdrop-blur" role="tablist" aria-label="نوع مشاهده"><Tab active={tab === "teacher"} onClick={() => switchTab("teacher")}>مشاهدات معلمین</Tab><Tab active={tab === "amir"} onClick={() => switchTab("amir")}>مشاهدات آمر و سرمعلم</Tab></div>
+    <PageHeader title="مشاهدات" description="مدیریت و مشاهده سوابق ارزیابی معلمین، آمران، مدیران و سرمعلم‌ها" actions={<><Button variant="secondary" disabled={exporting || !dateRangeValid} onClick={() => void download()}>{exporting ? <LoaderCircle className="animate-spin" size={16} /> : <Download size={16} />}دانلود اکسل</Button><Button variant="primary" onClick={openEmployeePicker}><FilePlus2 size={16} />ثبت مشاهده</Button></>} />
+    <div className="inline-flex rounded-xl border border-line/80 bg-[hsl(var(--surface)_/_0.72)] p-1 shadow-soft backdrop-blur" role="tablist" aria-label="نوع مشاهده"><Tab active={tab === "teacher"} onClick={() => switchTab("teacher")}>مشاهدات معلمین</Tab><Tab active={tab === "amir"} onClick={() => switchTab("amir")}>مشاهدات آمر، مدیر و سرمعلم</Tab></div>
     <FilterToolbar
       hasActiveFilters={hasActiveFilters}
       activeAdvancedCount={activeAdvancedCount}
@@ -148,7 +149,7 @@ export function ObservationsPage() {
         <DateRangeFilter className="sm:col-span-2" from={filters.observation_date_from} to={filters.observation_date_to} onFromChange={(value) => setFilter("observation_date_from", value)} onToChange={(value) => setFilter("observation_date_to", value)} />
         <label className="block"><span className="mb-1 block text-xs font-medium text-muted">شماره کارمند</span><input inputMode="numeric" className="input" value={filters.employee_id} onChange={(event) => setFilter("employee_id", event.target.value)} /></label>
         <label className="block"><span className="mb-1 block text-xs font-medium text-muted">مضمون</span><input className="input" value={filters.subject} onChange={(event) => setFilter("subject", event.target.value)} /></label>
-        {tab === "amir" ? <FilterSelect value={filters.employee_job_title_code} onChange={(value) => setFilter("employee_job_title_code", value)} label="عنوان وظیفه"><option value="">همه عنوان‌ها</option>{["amir", "senior_teacher"].map((code) => <option key={code} value={code}>{getJobTitleLabel(code)}</option>)}</FilterSelect> : null}
+        {tab === "amir" ? <FilterSelect value={filters.employee_job_title_code} onChange={(value) => setFilter("employee_job_title_code", value)} label="عنوان وظیفه"><option value="">همه عنوان‌ها</option>{amirObservationJobTitleCodes.map((code) => <option key={code} value={code}>{getJobTitleLabel(code)}</option>)}</FilterSelect> : null}
       </>}
     >
       <SearchInput className="sm:col-span-2 lg:col-span-1" value={filters.search} onChange={(event) => setFilter("search", event.target.value)} placeholder="جستجوی کارمند یا مضمون" />
@@ -205,7 +206,7 @@ function ObservationTable({ items, tab, onDetail, onEdit, onDelete }: { items: O
         </thead>
         <tbody>
           {items.map((item) => <tr key={item.id}>
-            <td dir="ltr" className="whitespace-nowrap tabular-nums">{formatApiDate(item.observation_date)}</td>
+            <td dir="ltr" className="whitespace-nowrap tabular-nums">{formatJalaliDate(item.observation_date)}</td>
             <td className="truncate font-medium text-ink" title={item.employee_name}>{item.employee_name}</td>
             {tab === "amir" ? <td className="truncate" title={getJobTitleLabel(item.employee_job_title_code)}>{getJobTitleLabel(item.employee_job_title_code)}</td> : null}
             <td className="truncate" title={item.subject}>{item.subject}</td>
@@ -227,7 +228,7 @@ function ObservationTable({ items, tab, onDetail, onEdit, onDelete }: { items: O
       {items.map((item) => <article key={item.id} className="surface-card p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="whitespace-nowrap text-xs tabular-nums text-muted" dir="ltr">{formatApiDate(item.observation_date)}</p>
+            <p className="whitespace-nowrap text-xs tabular-nums text-muted" dir="ltr">{formatJalaliDate(item.observation_date)}</p>
             <h2 className="mt-1 truncate text-sm font-semibold text-ink">{item.employee_name}</h2>
             <p className="mt-1 truncate text-sm text-muted">{item.subject} · {item.observer.name} {item.observer.surname}</p>
           </div>

@@ -47,10 +47,25 @@ ENTITY_LABELS = {
     AuditEntity.SCIENTIFIC_MEMBER: "عضو علمی", AuditEntity.SCHOOL: "مکتب",
     AuditEntity.SCHOOL_GRADE_SECTION: "شعبهٔ صنف", AuditEntity.USER: "کاربر",
     AuditEntity.TEACHER_OBSERVATION: "مشاهدهٔ معلم",
-    AuditEntity.AMIR_OBSERVATION: "مشاهدهٔ آمر / سرمعلم",
+    AuditEntity.AMIR_OBSERVATION: "مشاهدهٔ آمر / مدیر / سرمعلم",
     AuditEntity.EMPLOYEE_EXPORT: "کارمندان", AuditEntity.DEPARTMENT_EXPORT: "کارمندان دیپارتمنت",
     AuditEntity.SCIENTIFIC_MEMBER_EXPORT: "اعضای علمی", AuditEntity.SCHOOL_EXPORT: "مکاتب",
     AuditEntity.TEACHER_OBSERVATION_EXPORT: "مشاهدات معلمین",
-    AuditEntity.AMIR_OBSERVATION_EXPORT: "مشاهدات آمر و سرمعلم",
+    AuditEntity.AMIR_OBSERVATION_EXPORT: "مشاهدات آمر، مدیر و سرمعلم",
     AuditEntity.SCIENTIFIC_MEMBER_OBSERVATION_EXPORT: "سوابق مشاهدات عضو علمی",
 }
+
+# Only identifying fields belong in CREATE/DELETE details. IDs, actor, action,
+# and timestamps already exist on the audit row; long business text does not.
+AUDIT_IDENTITY_FIELDS = {
+    AuditEntity.EMPLOYEE: ("name", "father_name", "job_title_code"),
+    AuditEntity.DEPARTMENT: ("code",),
+    AuditEntity.SCIENTIFIC_MEMBER: ("name", "surname", "father_name", "department_id"),
+    AuditEntity.SCHOOL: ("school_name", "school_code"),
+    AuditEntity.SCHOOL_GRADE_SECTION: ("school_id", "grade_number", "section_name"),
+    AuditEntity.TEACHER_OBSERVATION: ("employee_id", "observation_date", "subject"),
+    AuditEntity.AMIR_OBSERVATION: ("employee_id", "observation_date", "subject"),
+    AuditEntity.USER: ("username", "full_name"),
+}
+
+AUDIT_UPDATE_IGNORED_FIELDS = frozenset({"id", "created_at", "updated_at"})

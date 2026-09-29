@@ -10,6 +10,7 @@ from app.common.employee_codes import (
     get_job_title_display_label,
 )
 from app.common.excel import add_worksheet, build_workbook, workbook_download_response
+from app.common.school_labels import SCHOOL_SERVICE_COUNT_LABELS
 from app.common.teacher_observation_results import get_teacher_final_result_display_label
 from app.common.teacher_competency_levels import format_teacher_competency
 from app.repositories.amir_observation_repository import AmirObservationFilters
@@ -206,7 +207,7 @@ class ExcelExportService:
             sort_order=sort_order,
         )
         workbook = build_workbook(
-            worksheet_title="مشاهدات آمر و سرمعلم",
+            worksheet_title="مشاهدات آمر، مدیر و سرمعلم",
             headers=_amir_observation_headers(),
             rows=(_amir_observation_row(*observation) for observation in observations),
             wrap_text_columns={7, 8, 16, 17, 18},
@@ -250,7 +251,7 @@ class ExcelExportService:
         )
         add_worksheet(
             workbook,
-            worksheet_title="مشاهدات آمر و سرمعلم",
+            worksheet_title="مشاهدات آمر، مدیر و سرمعلم",
             headers=_amir_observation_headers(),
             rows=(_amir_observation_row(*observation) for observation in amir_observations),
             wrap_text_columns={7, 8, 16, 17, 18},
@@ -458,8 +459,8 @@ def _school_general_headers() -> list[str]:
         "تعداد معلمان ارشد",
         "تعداد معلمان ذکور",
         "تعداد معلمان اناث",
-        "تعداد معلمان خدماتی وارده",
-        "تعداد معلمان خدماتی صادره",
+        SCHOOL_SERVICE_COUNT_LABELS["incoming_service_teacher_count"],
+        SCHOOL_SERVICE_COUNT_LABELS["outgoing_service_teacher_count"],
         "تعداد معلمان داوطلب",
         "تعداد صنوف فعال",
         "نیازهای مکتب",

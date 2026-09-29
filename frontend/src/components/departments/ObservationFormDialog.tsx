@@ -4,11 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { createAmirObservation, createTeacherObservation, updateAmirObservation, updateTeacherObservation, type AmirObservationDetail, type TeacherObservationDetail } from "../../api/observations";
 import { getScientificMembers } from "../../api/scientificMembers";
 import { getDepartmentLabel } from "../../lib/departmentLabels";
+import { getTodayIsoDate } from "../../lib/date";
 import { getJobTitleLabel } from "../../lib/employeeLabels";
 import type { Employee, ScientificMember } from "../../types/api";
 import { AppDialog } from "../shared/AppDialog";
 import { isValidCompetencyScore, ScoreInput, scoreValidationMessage } from "../shared/ScoreInput";
 import { SearchableSelect, type SelectOption } from "../shared/SearchableSelect";
+import { JalaliDateInput } from "../shared/JalaliDateInput";
 import { Button } from "../ui/button";
 
 export type ObservationKind = "teacher" | "amir";
@@ -23,8 +25,7 @@ const amirCompetencies = [
   { key: "responsibility_score", label: "مسوولیت پذیری" }, { key: "professional_leadership_score", label: "رهبری مسلکی" }, { key: "community_relations_score", label: "روابط با جامعه" }, { key: "professional_development_score", label: "انکشاف مسلکی" },
 ] as const;
 
-function today() { const current = new Date(); return `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-${String(current.getDate()).padStart(2, "0")}`; }
-function emptyCommonValues(): CommonValues { return { observerId: "", observationDate: today(), observedClass: "", subject: "", strengths: "", improvements: "", notes: "" }; }
+function emptyCommonValues(): CommonValues { return { observerId: "", observationDate: getTodayIsoDate(), observedClass: "", subject: "", strengths: "", improvements: "", notes: "" }; }
 function emptyScores(kind: ObservationKind): Record<string, string> { return Object.fromEntries((kind === "teacher" ? teacherCompetencies : amirCompetencies).map(({ key }) => [key, ""])); }
 
 export function ObservationFormDialog({ employee, kind, onOpenChange, onSaved, initialObservation = null }: ObservationFormDialogProps) {
@@ -50,19 +51,19 @@ export function ObservationFormDialog({ employee, kind, onOpenChange, onSaved, i
       });
     } else { setValues(emptyCommonValues()); setScores(emptyScores(kind)); }
     setValidationError(""); setDateError(""); setSubmissionError(""); setMembersLoading(true); setMembersError("");
-    getScientificMembers().then((response) => setMembers(response.items)).catch(() => setMembersError("دریافت فهرست مشاهده‌کنندگان با مشکل روبه‌رو شد.")).finally(() => setMembersLoading(false));
+    getScientificMembers({ page: 1, page_size: 100 }).then((response) => setMembers(response.items)).catch(() => setMembersError("دریافت فهرست مشاهده‌کنندگان با مشکل روبه‌رو شد.")).finally(() => setMembersLoading(false));
   }, [initialObservation, kind, open]);
 
   const competencies = kind === "teacher" ? teacherCompetencies : amirCompetencies;
   const memberOptions = useMemo<SelectOption[]>(() => members.map((member) => ({ value: String(member.id), label: `${member.name} ${member.surname} — ${member.father_name}` })), [members]);
   const observerName = members.find((member) => String(member.id) === values.observerId);
-  const title = initialObservation ? "ویرایش مشاهده" : kind === "teacher" ? "ثبت مشاهدهٔ معلم" : "ثبت مشاهدهٔ آمر / سرمعلم";
+  const title = initialObservation ? "ویرایش مشاهده" : kind === "teacher" ? "ثبت مشاهدهٔ معلم" : "ثبت مشاهدهٔ آمر / مدیر / سرمعلم";
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!employee || !kind) return;
     if (!values.observerId || !values.observationDate || !values.observedClass.trim() || !values.subject.trim()) { setValidationError("تمام فیلدهای الزامی را تکمیل کنید."); return; }
-    if (values.observationDate > today()) { setDateError("تاریخ مشاهده نمی‌تواند بعد از امروز باشد."); return; }
+    if (values.observationDate > getTodayIsoDate()) { setDateError("تاریخ مشاهده نمی‌تواند بعد از امروز باشد."); return; }
     if (competencies.some(({ key }) => !isValidCompetencyScore(scores[key] ?? ""))) { setValidationError(scoreValidationMessage); return; }
     setValidationError(""); setSubmissionError(""); setIsSubmitting(true);
     const common = { observer_scientific_member_id: Number(values.observerId), observation_date: values.observationDate, observed_class: values.observedClass.trim(), subject: values.subject.trim(), strengths: values.strengths.trim() || null, improvements: values.improvements.trim() || null, notes: values.notes.trim() || null };
@@ -83,7 +84,7 @@ export function ObservationFormDialog({ employee, kind, onOpenChange, onSaved, i
     {employee && kind ? <form id="observation-form" noValidate onSubmit={submit}>
       <EmployeeIdentity employee={employee} />
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <Field label="تاریخ مشاهده" required><input type="date" max={today()} className="input" value={values.observationDate} onChange={(event) => { const observationDate = event.target.value; setValues((current) => ({ ...current, observationDate })); setDateError(observationDate > today() ? "تاریخ مشاهده نمی‌تواند بعد از امروز باشد." : ""); }} />{dateError ? <p className="mt-1 text-xs text-rose-700">{dateError}</p> : null}</Field>
+        <Field label="تاریخ مشاهده" required><JalaliDateInput aria-label="تاریخ مشاهده" max={getTodayIsoDate()} value={values.observationDate} onChange={(observationDate) => { setValues((current) => ({ ...current, observationDate })); setDateError(observationDate > getTodayIsoDate() ? "تاریخ مشاهده نمی‌تواند بعد از امروز باشد." : ""); }} />{dateError ? <p className="mt-1 text-xs text-rose-700">{dateError}</p> : null}</Field>
         <Field label="صنف مشاهده شده" required><input className="input" value={values.observedClass} onChange={(event) => setValues((current) => ({ ...current, observedClass: event.target.value }))} /></Field>
         <Field label="مضمون" required><input className="input" value={values.subject} onChange={(event) => setValues((current) => ({ ...current, subject: event.target.value }))} /></Field>
         <Field label="مشاهده‌کننده" required><SearchableSelect value={values.observerId} options={memberOptions} onChange={(observerId) => setValues((current) => ({ ...current, observerId }))} placeholder={membersLoading ? "در حال دریافت مشاهده‌کنندگان" : "انتخاب مشاهده‌کننده"} searchPlaceholder="جستجوی مشاهده‌کننده" disabled={membersLoading || Boolean(membersError)} />{membersError ? <p className="mt-1 text-xs text-rose-700">{membersError}</p> : observerName ? <p className="mt-1 text-xs text-muted">انتخاب شده: {observerName.name} {observerName.surname}</p> : null}</Field>
@@ -98,4 +99,4 @@ export function ObservationFormDialog({ employee, kind, onOpenChange, onSaved, i
 function EmployeeIdentity({ employee }: { employee: Employee }) { const departmentNames = employee.departments.map((department) => getDepartmentLabel(department.code, department.display_name)).join("، ") || "—"; return <section className="rounded-xl border border-line bg-slate-50/80 p-4"><h2 className="text-sm font-semibold text-ink">مشخصات کارمند</h2><dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3"><Identity label="اسم" value={employee.name} /><Identity label="ولد" value={employee.father_name} /><Identity label="محل وظیفه" value={employee.school_workplace} /><Identity label="دیپارتمنت" value={departmentNames} /><Identity label="عنوان وظیفه" value={getJobTitleLabel(employee.job_title_code)} /></dl></section>; }
 function Identity({ label, value }: { label: string; value: string }) { return <div><dt className="text-xs text-muted">{label}</dt><dd className="mt-1 break-words text-ink">{value}</dd></div>; }
 function Field({ label, required = false, children }: { label: string; required?: boolean; children: React.ReactNode }) { return <label className="block"><span className="mb-1.5 block text-sm font-medium text-ink">{label}{required ? <span className="mr-1 text-rose-700">*</span> : null}</span>{children}</label>; }
-function CompetencyGuidance({ kind }: { kind: ObservationKind }) { const firstLabel = kind === "teacher" ? "قابلیت مشاهده نشد" : "غیر قابل ارزیابی"; return <details className="rounded-lg border border-line bg-white px-3 py-2 text-xs text-muted"><summary className="cursor-pointer font-medium text-ink">راهنمای نمره‌دهی</summary><div className="mt-2 grid gap-1 leading-5"><p>۰ تا ۰.۷۵: {firstLabel}</p><p>۰.۷۶ تا ۱.۵: نیازمند بهبود</p><p>۱.۶ تا ۲.۲۵: دارای قابلیت</p><p>۲.۲۶ تا ۳: تسلط بر قابلیت</p><p className="pt-1">برای فاصله‌های اعشاری تعریف‌نشده، سیستم تعیین‌کننده است.</p></div></details>; }
+function CompetencyGuidance({ kind }: { kind: ObservationKind }) { const firstLabel = kind === "teacher" ? "قابلیت مشاهده نشد" : "غیر قابل ارزیابی"; return <details className="rounded-lg border border-line bg-[hsl(var(--surface)_/_0.76)] px-3 py-2 text-xs text-muted"><summary className="cursor-pointer font-medium text-ink">راهنمای نمره‌دهی</summary><div className="mt-2 grid gap-1 leading-5"><p>۰ تا ۰.۷۵: {firstLabel}</p><p>۰.۷۶ تا ۱.۵: نیازمند بهبود</p><p>۱.۶ تا ۲.۲۵: دارای قابلیت</p><p>۲.۲۶ تا ۳: تسلط بر قابلیت</p><p className="pt-1">برای فاصله‌های اعشاری تعریف‌نشده، سیستم تعیین‌کننده است.</p></div></details>; }

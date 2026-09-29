@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { createEmployee, updateEmployee, type EmployeePayload } from "../../api/employees";
 import { getDepartmentLabel } from "../../lib/departmentLabels";
-import { educationLevelOptions, fieldMatchLabels, jobTitleLabels } from "../../lib/employeeLabels";
+import { addPersonnelLabel, educationLevelOptions, fieldMatchLabels, jobTitleLabels } from "../../lib/employeeLabels";
 import type { Department, Employee } from "../../types/api";
 import { AppDialog } from "../shared/AppDialog";
 import { MultiSelect, SearchableSelect, type SelectOption } from "../shared/SearchableSelect";
@@ -30,7 +30,7 @@ export function EmployeeFormDialog({ open, onOpenChange, departments, employee, 
   const fieldClass = (field: FieldName) => `input ${errors[field] ? "border-rose-500 focus:border-rose-500 focus:ring-rose-100" : ""}`;
   const textAreaClass = (field: FieldName) => `textarea ${errors[field] ? "border-rose-500 focus:border-rose-500 focus:ring-rose-100" : ""}`;
   const submit = async (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); const nextErrors = validate(values); setErrors(nextErrors); if (Object.keys(nextErrors).length) return; const payload: EmployeePayload = { ...values, teaching_experience: Number(values.teaching_experience), grade_post: Number(values.grade_post), step: Number(values.step), notes: (values.notes ?? "").trim() || null }; setIsSubmitting(true); setSubmitError(""); try { if (employee) { await updateEmployee(employee.id, payload); onSaved("اطلاعات کارمند به‌روزرسانی شد."); } else { await createEmployee(payload); onSaved("کارمند جدید با موفقیت ثبت شد."); } onOpenChange(false); } catch { setSubmitError("ثبت اطلاعات با مشکل روبه‌رو شد. لطفاً داده‌ها را بررسی کرده و دوباره تلاش کنید."); } finally { setIsSubmitting(false); } };
-  const title = employee ? "ویرایش کارمند" : "افزودن کارمند";
+  const title = employee ? "ویرایش کارمند" : addPersonnelLabel;
   const submitLabel = employee ? "ذخیره تغییرات" : "ثبت اطلاعات";
   return <AppDialog open={open} onOpenChange={onOpenChange} size="xl" title={title} description="اطلاعات کارمند را تکمیل کنید." footer={<><Button disabled={isSubmitting} variant="secondary" onClick={() => onOpenChange(false)}>انصراف</Button><Button form="employee-form" type="submit" disabled={isSubmitting} variant="primary">{isSubmitting ? <><LoaderCircle className="animate-spin" size={16} />در حال ثبت</> : submitLabel}</Button></>}>
     <form id="employee-form" noValidate onSubmit={submit}>

@@ -67,7 +67,9 @@ class EmployeeRepository:
 
         sort_column = getattr(Employee, sort_by)
         order_expression = sort_column.desc() if sort_order == "desc" else sort_column.asc()
-        employees = list(db.scalars(statement.order_by(order_expression).offset(offset).limit(limit)))
+        # A unique tie-breaker prevents equal sort values from shifting across pages.
+        id_order = Employee.id.desc() if sort_order == "desc" else Employee.id.asc()
+        employees = list(db.scalars(statement.order_by(order_expression, id_order).offset(offset).limit(limit)))
         return employees, total
 
     def get_by_id(self, db: Session, employee_id: int) -> Employee | None:

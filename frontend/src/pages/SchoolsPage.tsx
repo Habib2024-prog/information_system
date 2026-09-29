@@ -1,5 +1,7 @@
+import { usePaginatedList } from "../hooks/usePaginatedList";
+import { DEFAULT_PAGE_SIZE, getTotalPages } from "../lib/pagination";
 import { Download, LoaderCircle, Plus } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { deleteSchool, emptySchoolFilters, exportSchools, getSchools, type SchoolFilters } from "../api/schools";
 import { SchoolDetailsDialog } from "../components/schools/SchoolDetailsDialog";
@@ -14,9 +16,9 @@ import { EmptyState, ErrorState, LoadingState } from "../components/shared/state
 import { Button } from "../components/ui/button";
 import { useToast } from "../components/ui/toast";
 import { genderTypeOptions, schoolTypeOptions } from "../lib/schoolLabels";
-import type { PaginatedResponse, School } from "../types/api";
+import type { School } from "../types/api";
 
-const pageSize = 20;
+const pageSize = DEFAULT_PAGE_SIZE;
 
 function hasFilters(filters: SchoolFilters) {
   return Object.values(filters).some(Boolean);
@@ -25,31 +27,17 @@ function hasFilters(filters: SchoolFilters) {
 export function SchoolsPage() {
   const { showToast } = useToast();
   const [filters, setFilters] = useState<SchoolFilters>({ ...emptySchoolFilters });
-  const [data, setData] = useState<PaginatedResponse<School> | null>(null);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [exporting, setExporting] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<School | undefined>();
   const [details, setDetails] = useState<School | null>(null);
   const [reload, setReload] = useState(0);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const result = await getSchools({ ...filters, page, page_size: pageSize, sort_by: "id", sort_order: "asc" });
-      setData(result);
-      if (!result.items.length && result.total > 0 && page > 1) setPage((current) => current - 1);
-    } catch {
-      setError("دریافت فهرست مکاتب با مشکل روبه‌رو شد.");
-    } finally {
-      setLoading(false);
-    }
-  }, [filters, page, reload]);
-
-  useEffect(() => { void load(); }, [load]);
+  const fetchPage = useCallback(() => getSchools({ ...filters, page, page_size: pageSize, sort_by: "id", sort_order: "asc" }), [filters, page, reload]);
+  const { data, loading, error, retry: load } = usePaginatedList({
+    fetchPage, page, pageSize, onPageChange: setPage, errorMessage: "دریافت فهرست مکاتب با مشکل روبه‌رو شد.",
+  });
 
   const updateFilter = (key: keyof SchoolFilters, value: string) => {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -80,12 +68,13 @@ export function SchoolsPage() {
 
   const activeAdvancedFilters = useMemo(() => [filters.school_code, filters.school_formation].filter(Boolean).length, [filters.school_code, filters.school_formation]);
   const schools = data?.items ?? [];
-  const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / pageSize));
+  const totalPages = getTotalPages(data?.total ?? 0, pageSize);
 
   return <div className="space-y-5 sm:space-y-6">
     <PageHeader title="مکاتب" description="مدیریت اطلاعات مکاتب و آمار شاگردان صنف‌های ۱ تا ۱۲" actions={<><Button variant="secondary" disabled={exporting} onClick={() => void download()}>{exporting ? <><LoaderCircle size={16} className="animate-spin" />در حال آماده‌سازی</> : <><Download size={16} />دانلود اکسل</>}</Button><Button variant="primary" onClick={() => { setEditing(undefined); setFormOpen(true); }}><Plus size={16} />افزودن مکتب</Button></>} />
     <SchoolFiltersBar filters={filters} hasActiveFilters={hasFilters(filters)} activeAdvancedFilters={activeAdvancedFilters} onChange={updateFilter} onClear={clearFilters} />
-    {loading ? <LoadingState title="در حال دریافت مکاتب" description="فهرست مکاتب در حال بارگذاری است." /> : error ? <ErrorState title="خطا در دریافت اطلاعات" description={error} onRetry={() => void load()} /> : schools.length === 0 ? <EmptyState title="مکتبی یافت نشد" description="فیلترها را تغییر دهید یا مکتب جدیدی ثبت کنید." /> : <><SchoolTable schools={schools} onDetails={setDetails} onEdit={(school) => { setEditing(school); setFormOpen(true); }} onDelete={(school) => void remove(school)} /><PaginationControls page={page} total={data?.total ?? 0} totalPages={totalPages} pageSize={pageSize} onPageChange={setPage} /></>}
+    {loading ? <LoadingState title="در حال دریافت مکاتب" description="فهرست مکاتب در حال بارگذاری است." /> : error ? <ErrorState title="خطا در دریافت اطلاعات" description={error} onRetry={() => void load()} /> : schools.length === 0 ? <EmptyState title="مکتبی یافت نشد" description="فیلترها را تغییر دهید یا مکتب جدیدی ثبت کنید." /> : <><SchoolTable schools={schools} onDetails={setDetails} onEdit={(school) => { setEditing(school); setFormOpen(true); }} onDelete={(school) => void remove(school)} /></>}
+    {!loading && !error && data ? <PaginationControls page={page} total={data?.total ?? 0} totalPages={totalPages} pageSize={pageSize} onPageChange={setPage} /> : null}
     <SchoolFormDialog open={formOpen} onOpenChange={setFormOpen} school={editing} onSaved={afterSaved} />
     <SchoolDetailsDialog school={details} onOpenChange={(open) => { if (!open) setDetails(null); }} />
   </div>;

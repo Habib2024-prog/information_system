@@ -27,6 +27,15 @@ class Settings(BaseSettings):
     secret_key: SecretStr | None = None
     jwt_algorithm: Literal["HS256", "HS384", "HS512"] = "HS256"
     access_token_expire_minutes: int = Field(default=60, gt=0)
+    app_environment: Literal["development", "test", "production"] = "development"
+    profile_image_storage_backend: Literal["local", "s3"] = "local"
+    profile_image_local_directory: str = "backend/uploads/profile-images"
+    profile_image_max_bytes: int = Field(default=5 * 1024 * 1024, gt=0)
+    profile_image_s3_bucket: str | None = None
+    profile_image_s3_region: str | None = None
+    profile_image_s3_endpoint_url: str | None = None
+    profile_image_s3_public_base_url: str | None = None
+    profile_image_s3_prefix: str = "profile-images"
 
     @property
     def database_url(self) -> str:
@@ -44,6 +53,19 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins_raw.split(",") if origin.strip()]
+
+    def validate_profile_image_storage(self) -> None:
+        if self.app_environment == "production" and self.profile_image_storage_backend == "local":
+            raise RuntimeError(
+                "PROFILE_IMAGE_STORAGE_BACKEND must use persistent object storage in production."
+            )
+        if self.profile_image_storage_backend == "s3" and not all((
+            self.profile_image_s3_bucket,
+            self.profile_image_s3_public_base_url,
+        )):
+            raise RuntimeError(
+                "PROFILE_IMAGE_S3_BUCKET and PROFILE_IMAGE_S3_PUBLIC_BASE_URL are required for S3 storage."
+            )
 
 
 @lru_cache

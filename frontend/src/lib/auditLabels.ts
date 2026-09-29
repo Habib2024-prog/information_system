@@ -11,9 +11,9 @@ export const auditActionLabels = {
 } as const;
 export const auditEntityLabels = {
   employee: "کارمند", department: "دیپارتمنت", scientific_member: "عضو علمی", school: "مکتب", school_grade_section: "شعبهٔ صنف",
-  teacher_observation: "مشاهده معلم", amir_observation: "مشاهده آمر / سرمعلم", user: "کاربر",
+  teacher_observation: "مشاهده معلم", amir_observation: "مشاهده آمر / مدیر / سرمعلم", user: "کاربر",
   employee_export: "اکسل کارمندان", department_export: "اکسل دیپارتمنت", scientific_member_export: "اکسل اعضای علمی",
-  teacher_observation_export: "اکسل مشاهدات معلمین", amir_observation_export: "اکسل مشاهدات آمر / سرمعلم", school_export: "اکسل مکاتب",
+  teacher_observation_export: "اکسل مشاهدات معلمین", amir_observation_export: "اکسل مشاهدات آمر / مدیر / سرمعلم", school_export: "اکسل مکاتب",
   scientific_member_observation_export: "اکسل سوابق عضو علمی",
 } as const;
 export const getAuditActionLabel = (code: string) => auditActionLabels[code as keyof typeof auditActionLabels] ?? "عملیات نامشخص";
@@ -22,7 +22,7 @@ export const auditActionOptions = Object.entries(auditActionLabels).map(([value,
 export const auditEntityOptions = Object.entries(auditEntityLabels).map(([value, label]) => ({ value, label }));
 
 const fieldLabels: Record<string, string> = {
-  id: "شماره", user_id: "شماره کاربر", username: "نام کاربری", full_name: "نام کامل", role_code: "نقش", is_active: "وضعیت",
+  id: "شماره", user_id: "شماره کاربر", username: "نام کاربری", full_name: "نام کامل", role_code: "نقش", is_active: "وضعیت", profile_image_key: "تصویر نمایه",
   name: "اسم", surname: "تخلص", father_name: "ولد", grandfather_name: "ولدیت", phone_number: "شماره تماس",
   school_workplace: "محل وظیفه", city_district: "شهر / ولسوالی", field_of_study: "رشته تحصیلی", education_level: "درجه تحصیل",
   subjects_taught: "مضامین تدریس", job_title_code: "عنوان وظیفه", employee_job_title_code: "عنوان وظیفه", teaching_experience: "سابقه تدریس", grade_post: "بست", step: "قدم",
@@ -37,10 +37,13 @@ const fieldLabels: Record<string, string> = {
   senior_teacher_count: "تعداد سرمعلم", male_teacher_count: "تعداد معلم ذکور", female_teacher_count: "تعداد معلم اناث", incoming_service_teacher_count: "معلم خدماتی ورودی", outgoing_service_teacher_count: "معلم خدماتی خروجی", volunteer_teacher_count: "تعداد معلم رضاکار", active_class_section_count: "صنوف فعال", school_needs: "نیازمندی‌های مکتب", school_equipment: "تجهیزات مکتب",
   grade_statistics: "آمار صنوف", grade_number: "صنف", section_name: "شعبه", sections: "شعبات", enrolled_count: "داخله", present_count: "حاضر", male_count: "ذکور", female_count: "اناث", totals: "مجموع",
   filters: "فیلترها", sorting: "ترتیب نمایش", sort_by: "مرتب‌سازی بر اساس", sort_order: "جهت ترتیب", search: "جستجو", date_from: "از تاریخ", date_to: "تا تاریخ", observation_date_from: "از تاریخ مشاهده", observation_date_to: "تا تاریخ مشاهده",
+  record: "اطلاعات رکورد", changes: "تغییرات", old: "مقدار قبلی", new: "مقدار جدید", before: "مقدار قبلی", after: "مقدار جدید", record_count: "تعداد رکوردها", export_timestamp: "زمان استخراج",
 };
 export const getAuditFieldLabel = (key: string) => fieldLabels[key] ?? "اطلاعات دیگر";
 export function isSensitiveAuditKey(key: string) {
-  return /(password|token|secret|authorization|credential|api_?key|cookie)/i.test(key.replace(/[-\s]/g, "_"));
+  const compact = key.replace(/[-_\s]/g, "");
+  return /^(database|db|connection|databaseconfig|dbconfig)$/i.test(compact)
+    || /(password|token|jwt|secret|authorization|credential|apikey|cookie|databaseurl|databaseuri|dburl|connectionstring|dsn|postgresuser|postgresqluser|databaseuser|dbuser|pguser|privatekey|signingkey|authheader)/i.test(compact);
 }
 /** Defense in depth for snapshots, including nested metadata and arrays. */
 export function sanitizeAuditJson(value: JsonValue): JsonValue {
@@ -49,7 +52,7 @@ export function sanitizeAuditJson(value: JsonValue): JsonValue {
   return value;
 }
 export function formatAuditValue(key: string, value: string | number | boolean | null, entity: string): string {
-  if (value === null) return key === "final_result_code" ? "تعیین نشده" : "ثبت نشده";
+  if (value === null || (typeof value === "string" && !value.trim())) return key === "final_result_code" ? "تعیین نشده" : "—";
   if (typeof value === "boolean") return key === "is_active" ? value ? "فعال" : "غیرفعال" : value ? "بلی" : "نخیر";
   if (typeof value === "number") return value.toLocaleString("fa-AF");
   if (key === "role_code") return value === "admin" || value === "user" ? getRoleLabel(value) : "نامشخص";

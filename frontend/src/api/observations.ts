@@ -1,8 +1,6 @@
 import { apiGet, apiRequest, apiFetch, apiDownload } from "./client";
 import type { PaginatedResponse } from "../types/api";
 
-export const observationCountUnavailable = true;
-
 interface ObservationBasePayload {
   observer_scientific_member_id: number;
   observation_date: string;

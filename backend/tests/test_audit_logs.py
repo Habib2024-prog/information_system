@@ -108,7 +108,7 @@ def test_normal_user_can_use_modules_but_not_admin_endpoints(client: TestClient)
     assert client.get("/api/audit-logs/1").status_code == 403
 
 
-def test_employee_create_update_delete_snapshots_and_actor(client: TestClient, db_session: Session,
+def test_employee_create_update_delete_compact_details_and_actor(client: TestClient, db_session: Session,
                                                           authenticated_user: User, admin_headers: dict) -> None:
     employee = create_employee(client)
     assert client.put(f"/api/employees/{employee['id']}", json=employee_payload(name="نام جدید")).status_code == 200
@@ -116,26 +116,23 @@ def test_employee_create_update_delete_snapshots_and_actor(client: TestClient, d
     entries = logs(db_session, "employee")
     assert [entry.action for entry in entries] == ["CREATE", "UPDATE", "DELETE"]
     assert all(entry.user_id == authenticated_user.id for entry in entries)
-    assert entries[0].before_data is None
-    assert entries[0].after_data["name"] == "Ahmad"
-    assert entries[1].before_data["name"] == "Ahmad"
-    assert entries[1].after_data["name"] == "نام جدید"
-    assert entries[2].before_data["deleted_at"] is None
-    assert entries[2].after_data["deleted_at"] is not None
+    assert all(entry.before_data is None and entry.after_data is None for entry in entries)
+    assert entries[0].event_metadata["record"] == {"name": "Ahmad", "father_name": "Karim", "job_title_code": "teacher"}
+    assert entries[1].event_metadata["changes"] == {"name": {"old": "Ahmad", "new": "نام جدید"}}
+    assert entries[2].event_metadata["record"]["name"] == "نام جدید"
     response = client.get(f"/api/audit-logs/{entries[1].id}", headers=admin_headers)
     assert response.status_code == 200
     assert response.json()["user"]["id"] == authenticated_user.id
-    assert response.json()["before_data"]["name"] == "Ahmad"
+    assert response.json()["changes"] == {"name": {"old": "Ahmad", "new": "نام جدید"}}
     assert client.get("/api/audit-logs/999999", headers=admin_headers).status_code == 404
 
 
-def test_employee_department_assignment_changes_are_in_snapshot(client: TestClient, db_session: Session) -> None:
+def test_employee_department_assignment_changes_are_audited(client: TestClient, db_session: Session) -> None:
     department_id = _science_department_id(db_session)
     employee = create_employee(client)
     assert client.put(f"/api/employees/{employee['id']}", json=employee_payload(department_ids=[department_id])).status_code == 200
     entry = logs(db_session, "employee", "UPDATE")[0]
-    assert entry.before_data["department_ids"] == []
-    assert entry.after_data["department_ids"] == [department_id]
+    assert entry.event_metadata["changes"] == {"department_ids": {"old": [], "new": [department_id]}}
 
 
 def test_scientific_member_crud_audited(client: TestClient, db_session: Session) -> None:
@@ -146,8 +143,7 @@ def test_scientific_member_crud_audited(client: TestClient, db_session: Session)
     assert client.delete(f"/api/scientific-members/{member['id']}").status_code == 204
     entries = logs(db_session, "scientific_member")
     assert [entry.action for entry in entries] == ["CREATE", "UPDATE", "DELETE"]
-    assert entries[1].before_data["academic_rank"] == "پوهنمل"
-    assert entries[1].after_data["academic_rank"] == "هر رتبه علمی"
+    assert entries[1].event_metadata["changes"] == {"academic_rank": {"old": "پوهنمل", "new": "هر رتبه علمی"}}
 
 
 @pytest.mark.parametrize("observation_type,job", [("teacher", "teacher"), ("amir", "amir"), ("amir", "senior_teacher")])
@@ -168,10 +164,11 @@ def test_all_observation_actions_audited(client: TestClient, db_session: Session
     entries = logs(db_session, f"{observation_type}_observation")
     assert [entry.action for entry in entries] == ["CREATE_OBSERVATION", "UPDATE_OBSERVATION", "DELETE_OBSERVATION"]
     assert all(entry.entity_id == record_id for entry in entries)
-    assert entries[1].before_data["subject"] != "مضمون جدید"
-    assert entries[1].after_data["subject"] == "مضمون جدید"
-    assert entries[0].after_data["employee_id"] == employee["id"]
-    assert "total_score" in entries[0].after_data
+    assert entries[1].event_metadata["changes"]["subject"]["old"] != "مضمون جدید"
+    assert entries[1].event_metadata["changes"]["subject"]["new"] == "مضمون جدید"
+    assert set(entries[1].event_metadata["changes"]) == {"subject"}
+    assert entries[0].event_metadata["record"]["employee_id"] == employee["id"]
+    assert "total_score" not in entries[0].event_metadata["record"]
 
 
 def test_school_and_section_actions_are_atomic_and_audited(client: TestClient, db_session: Session) -> None:
@@ -190,12 +187,11 @@ def test_school_and_section_actions_are_atomic_and_audited(client: TestClient, d
     section_entries = logs(db_session, "school_grade_section")
     assert len([entry for entry in section_entries if entry.action == "CREATE"]) == 3
     changed = next(entry for entry in section_entries if entry.action == "UPDATE")
-    assert changed.before_data["enrolled_count"] == 30
-    assert changed.after_data["enrolled_count"] == 32
+    assert changed.event_metadata["changes"] == {"enrolled_count": {"old": 30, "new": 32}}
     removed = next(entry for entry in section_entries if entry.action == "DELETE")
     assert removed.entity_id == second["id"]
-    assert removed.before_data["section_name"] == "ب"
-    assert removed.after_data["deleted_at"] is not None
+    assert removed.event_metadata["record"]["section_name"] == "ب"
+    assert "deleted_at" not in removed.event_metadata["record"]
 
 
 def test_department_mutations_are_audited(client: TestClient, db_session: Session) -> None:
@@ -205,8 +201,7 @@ def test_department_mutations_are_audited(client: TestClient, db_session: Sessio
     assert client.put(f"/api/departments/{department_id}", json={"code": "mathematics"}).status_code == 200
     entries = logs(db_session, "department")
     assert [entry.action for entry in entries] == ["CREATE", "UPDATE"]
-    assert entries[1].before_data["code"] == "science"
-    assert entries[1].after_data["code"] == "mathematics"
+    assert entries[1].event_metadata["changes"] == {"code": {"old": "science", "new": "mathematics"}}
 
 
 @pytest.mark.parametrize("path,entity,query", [
@@ -310,8 +305,8 @@ def test_client_cannot_spoof_actor_or_ip(client: TestClient, db_session: Session
     entry = logs(db_session, "employee")[0]
     assert entry.user_id == authenticated_user.id
     assert entry.ip_address == "testclient"
-    assert "user_id" not in entry.after_data
-    assert "ip_address" not in entry.after_data
+    assert "user_id" not in entry.event_metadata["record"]
+    assert "ip_address" not in entry.event_metadata["record"]
 
 
 def test_failed_actions_and_failed_exports_produce_no_success_audit(client: TestClient, db_session: Session) -> None:

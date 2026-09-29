@@ -34,7 +34,7 @@ def list_employees(
     db: DbSession,
     filters: Annotated[EmployeeFilters, Depends(get_employee_filters)],
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=10, ge=1, le=100),
     sort_by: EmployeeSortField = "id",
     sort_order: SortOrder = "asc",
 ) -> EmployeeListResponse:

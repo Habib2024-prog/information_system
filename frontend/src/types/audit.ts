@@ -8,5 +8,6 @@ export interface AuditLog {
   user: { id: number; username: string; full_name: string };
   action: AuditAction; entity_type: AuditEntity; entity_id: number | null;
   description: string; before_data: JsonObject | null; after_data: JsonObject | null;
+  changes?: JsonObject | null;
   metadata: JsonObject | null; ip_address: string | null; created_at: string;
 }

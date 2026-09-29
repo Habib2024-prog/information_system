@@ -3,21 +3,24 @@ from typing import Final
 
 TEACHER_JOB_TITLE_CODE: Final = "teacher"
 AMIR_JOB_TITLE_CODE: Final = "amir"
+MANAGER_JOB_TITLE_CODE: Final = "manager"
 SENIOR_TEACHER_JOB_TITLE_CODE: Final = "senior_teacher"
 
 AMIR_OBSERVATION_ELIGIBLE_JOB_TITLE_CODES: Final[frozenset[str]] = frozenset(
-    {AMIR_JOB_TITLE_CODE, SENIOR_TEACHER_JOB_TITLE_CODE}
+    {AMIR_JOB_TITLE_CODE, MANAGER_JOB_TITLE_CODE, SENIOR_TEACHER_JOB_TITLE_CODE}
 )
 
 JOB_TITLE_DISPLAY_LABELS: Final[dict[str, str]] = {
     TEACHER_JOB_TITLE_CODE: "معلم",
     AMIR_JOB_TITLE_CODE: "آمر",
+    MANAGER_JOB_TITLE_CODE: "مدیر",
     SENIOR_TEACHER_JOB_TITLE_CODE: "سرمعلم",
 }
 
 FIELD_MATCH_DISPLAY_LABELS: Final[dict[str, str]] = {
     "in_field": "مطابق رشته",
-    "out_of_field": "خلاف رشته",
+    "out_of_field": "مخالف رشته",
+    "non_professional": "غیر مسلکی",
 }
 
 

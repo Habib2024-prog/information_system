@@ -1,5 +1,5 @@
 from dataclasses import asdict, dataclass, is_dataclass
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from functools import wraps
 from inspect import signature
 
@@ -8,7 +8,10 @@ from pydantic import BaseModel, SecretStr
 from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
-from app.common.audit_codes import ACTION_LABELS, ENTITY_LABELS, AuditAction, AuditEntity
+from app.common.audit_codes import (
+    ACTION_LABELS, ENTITY_LABELS, AUDIT_IDENTITY_FIELDS,
+    AUDIT_UPDATE_IGNORED_FIELDS, AuditAction, AuditEntity,
+)
 from app.models.audit_log import AuditLog
 from app.repositories.audit_log_repository import AuditLogRepository
 from app.schemas.audit_log import AuditLogFilters, AuditLogListResponse, AuditLogRead, AuditUserRead
@@ -23,8 +26,15 @@ class AuditContext:
 
 
 def is_sensitive_key(key: str) -> bool:
-    normalized = key.casefold().replace("-", "_")
-    return any(word in normalized for word in ("password", "token", "secret", "authorization", "credential", "api_key", "cookie"))
+    normalized = key.casefold().replace("-", "_").replace(" ", "_")
+    compact = normalized.replace("_", "")
+    if compact in {"database", "db", "connection", "databaseconfig", "dbconfig"}:
+        return True
+    return any(word in compact for word in (
+        "password", "token", "jwt", "secret", "authorization", "credential", "apikey", "cookie",
+        "databaseurl", "databaseuri", "dburl", "connectionstring", "dsn", "postgresuser",
+        "postgresqluser", "databaseuser", "dbuser", "pguser", "privatekey", "signingkey", "authheader",
+    ))
 
 
 def sanitize_audit_data(value):
@@ -52,6 +62,41 @@ def record_snapshot(record) -> dict:
     })
 
 
+def build_audit_changes(before: dict | None, after: dict | None) -> dict:
+    """Compare sanitized business values; never persist whole record snapshots."""
+    before = sanitize_audit_data(before) or {}
+    after = sanitize_audit_data(after) or {}
+    changes = {}
+    for key in sorted(before.keys() | after.keys()):
+        if key in AUDIT_UPDATE_IGNORED_FIELDS:
+            continue
+        old, new = before.get(key), after.get(key)
+        if old == new:
+            continue
+        # Decimal representation changes (2.00 vs 2) are not score changes.
+        if key.endswith("_score") and old is not None and new is not None:
+            try:
+                if Decimal(str(old)) == Decimal(str(new)):
+                    continue
+            except InvalidOperation:
+                pass  # Retain unexpected historical values rather than losing the change.
+        # Department assignments are sets, not an ordered business value.
+        if key == "department_ids" and isinstance(old, list) and isinstance(new, list):
+            if sorted(old) == sorted(new):
+                continue
+        changes[key] = {"old": old, "new": new}
+    return changes
+
+
+def compact_audit_identity(snapshot: dict | None, entity_type: AuditEntity) -> dict:
+    data = sanitize_audit_data(snapshot) or {}
+    return {
+        key: value[:200] if isinstance(value, str) else value
+        for key in AUDIT_IDENTITY_FIELDS.get(entity_type, ())
+        if isinstance(value := data.get(key), (str, int, float, bool)) and value != ""
+    }
+
+
 class AuditLogNotFoundError(Exception):
     pass
 
@@ -68,12 +113,23 @@ class AuditService:
         if actor is None:
             # Trusted local CLI/seed calls have no authenticated request actor.
             return None
+        details = sanitize_audit_data(metadata) or {}
+        if action in (AuditAction.UPDATE, AuditAction.UPDATE_OBSERVATION):
+            changes = build_audit_changes(before_data, after_data)
+            if not changes:
+                return None  # Do not turn a no-op/timestamp-only write into an UPDATE event.
+            details["changes"] = changes
+        elif action in (AuditAction.CREATE, AuditAction.CREATE_OBSERVATION,
+                        AuditAction.DELETE, AuditAction.DELETE_OBSERVATION, AuditAction.PASSWORD_CHANGE):
+            snapshot = before_data if action in (AuditAction.DELETE, AuditAction.DELETE_OBSERVATION) else after_data
+            details["record"] = compact_audit_identity(snapshot, entity_type)
         return self.repository.create(db, {
             "user_id": actor.user_id, "action": action.value, "entity_type": entity_type.value,
             "entity_id": entity_id,
             "description": f"{ACTION_LABELS[action]} — {ENTITY_LABELS[entity_type]}",
-            "before_data": sanitize_audit_data(before_data), "after_data": sanitize_audit_data(after_data),
-            "event_metadata": sanitize_audit_data(metadata), "ip_address": actor.ip_address,
+            # Leave historical snapshot columns intact, but never populate them for new events.
+            "before_data": None, "after_data": None,
+            "event_metadata": details or None, "ip_address": actor.ip_address,
         })
 
     def log_change(self, db: Session, *, record, action: AuditAction, entity_type: AuditEntity,
@@ -106,11 +162,13 @@ class AuditService:
 
     @staticmethod
     def _to_read(log: AuditLog) -> AuditLogRead:
+        metadata = sanitize_audit_data(log.event_metadata)
         return AuditLogRead(
             id=log.id, user=AuditUserRead.model_validate(log.user), action=log.action,
             entity_type=log.entity_type, entity_id=log.entity_id, description=log.description,
             before_data=sanitize_audit_data(log.before_data), after_data=sanitize_audit_data(log.after_data),
-            metadata=sanitize_audit_data(log.event_metadata), ip_address=log.ip_address, created_at=log.created_at,
+            changes=metadata.get("changes") if metadata else None,
+            metadata=metadata, ip_address=log.ip_address, created_at=log.created_at,
         )
 
 

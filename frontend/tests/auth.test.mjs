@@ -5,6 +5,8 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { beforeEach, test } from "node:test";
 import ts from "typescript";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 // Compile the real TypeScript modules in memory. No new test framework or build files.
 const require = createRequire(import.meta.url);
@@ -36,6 +38,7 @@ const auth = await import(moduleUrl(resolve(root, "api/auth.ts")));
 const audit = await import(moduleUrl(resolve(root, "lib/auditLabels.ts")));
 const logs = await import(moduleUrl(resolve(root, "api/auditLogs.ts")));
 const labels = await import(moduleUrl(resolve(root, "lib/authLabels.ts")));
+const dashboard = await import(moduleUrl(resolve(root, "api/dashboard.ts")));
 let requests;
 beforeEach(() => {
   session.setAccessToken(null);
@@ -208,4 +211,128 @@ test("departments do not invent local rows for an empty catalogue or hide an aut
   globalThis.fetch = async () => Response.json({ detail: "اطلاعات ورود معتبر نیست." }, { status: 401 });
   await assert.rejects(departments.getDepartments(), { status: 401 });
   assert.equal(session.getAccessToken(), null);
+});
+
+const dashboardSummary = {
+  totals: { employees: 142, scientific_members: 9, schools: 12, observations: 5 },
+  observation_overview: [
+    { observation_type: "teacher", total: 3, results: [{ final_result_code: "has_capability", count: 2 }, { final_result_code: null, count: 1 }] },
+    { observation_type: "amir_senior_teacher", total: 2, results: [{ final_result_code: "mastery", count: 2 }] },
+  ],
+};
+
+test("dashboard reads backend totals in one authenticated summary request without downloading tables", async () => {
+  session.setAccessToken("test-session");
+  globalThis.fetch = async (url, init) => { requests.push({ url, init }); return Response.json(dashboardSummary); };
+  assert.deepEqual(await dashboard.getDashboardSummary(), dashboardSummary);
+  assert.equal(requests.length, 1);
+  assert.equal(new URL(requests[0].url).pathname, "/api/dashboard/summary");
+  assert.equal(requests[0].init.headers.get("Authorization"), "Bearer test-session");
+});
+
+test("dashboard recent activity reuses a bounded newest-first authenticated audit request", async () => {
+  session.setAccessToken("test-session");
+  const items = [{ id: 12, description: "آخرین فعالیت" }, { id: 11, description: "فعالیت پیشین" }];
+  globalThis.fetch = async (url, init) => { requests.push({ url, init }); return Response.json({ items, total: 500, page: 1, page_size: 3 }); };
+  assert.deepEqual(await dashboard.getDashboardRecentActivities(), items);
+  const url = new URL(requests[0].url);
+  assert.equal(url.pathname, "/api/audit-logs");
+  assert.equal(url.searchParams.get("page_size"), "3");
+  assert.equal(url.searchParams.get("page"), "1");
+  assert.equal(url.searchParams.get("sort_by"), "created_at");
+  assert.equal(url.searchParams.get("sort_order"), "desc");
+  assert.equal(requests[0].init.headers.get("Authorization"), "Bearer test-session");
+});
+
+test("dashboard propagates API errors instead of inventing totals and clears expired authentication", async () => {
+  session.setAccessToken("test-session");
+  globalThis.fetch = async () => new Response(null, { status: 500 });
+  await assert.rejects(dashboard.getDashboardSummary(), { status: 500 });
+  assert.equal(session.getAccessToken(), "test-session");
+  globalThis.fetch = async () => new Response(null, { status: 401 });
+  await assert.rejects(dashboard.getDashboardSummary(), { status: 401 });
+  assert.equal(session.getAccessToken(), null);
+});
+
+test("dashboard rejects responses from a session that ended while loading", async () => {
+  session.setAccessToken("test-session");
+  let finish;
+  globalThis.fetch = () => new Promise((resolve) => { finish = resolve; });
+  const pending = dashboard.getDashboardSummary();
+  session.setAccessToken(null);
+  finish(Response.json(dashboardSummary));
+  await assert.rejects(pending, { status: 401 });
+});
+
+const overviewComponent = await import(moduleUrl(resolve(root, "components/dashboard/ObservationOverview.tsx")));
+const activitiesComponent = await import(moduleUrl(resolve(root, "components/dashboard/RecentActivities.tsx")));
+const renderOverview = (props = {}) => renderToStaticMarkup(createElement(overviewComponent.ObservationOverview, { items: [], isLoading: false, hasError: false, onRetry() {}, ...props }));
+const renderActivities = (props = {}) => renderToStaticMarkup(createElement(activitiesComponent.RecentActivities, { items: [], hasAccess: true, isLoading: false, hasError: false, onRetry() {}, ...props }));
+
+test("observation overview renders actual counts and type-specific stored result labels, including null", () => {
+  const html = renderOverview({ items: dashboardSummary.observation_overview });
+  assert.ok(html.includes("دارای قابلیت"));
+  assert.ok(html.includes("تعیین نشده"));
+  assert.ok(html.includes("مسلط بر قابلیت"));
+  assert.ok(html.includes((3).toLocaleString("fa-IR")));
+  assert.ok(!html.includes("has_capability"));
+  assert.ok(!html.includes("amir_senior_teacher"));
+});
+
+test("overview distinguishes loading, API errors, and legitimately empty observation data", () => {
+  assert.ok(renderOverview({ isLoading: true }).includes("در حال دریافت مشاهدات"));
+  const error = renderOverview({ hasError: true });
+  assert.ok(error.includes("دریافت مشاهدات ممکن نشد"));
+  assert.ok(error.includes("دوباره تلاش کنید"));
+  assert.ok(!error.includes("مشاهده‌ای ثبت نشده است"));
+  assert.ok(renderOverview().includes("مشاهده‌ای ثبت نشده است"));
+});
+
+test("recent activities show real records in API order and localized action/entity labels", () => {
+  const items = [
+    { id: 12, action: "UPDATE", entity_type: "employee", description: "آخرین فعالیت واقعی", user: { full_name: "احمد" }, created_at: "2026-09-27T13:00:00Z" },
+    { id: 11, action: "CREATE", entity_type: "school", description: "فعالیت پیشین واقعی", user: { full_name: "مریم" }, created_at: "2026-09-26T13:00:00Z" },
+  ];
+  const html = renderActivities({ items });
+  assert.ok(html.indexOf(items[0].description) < html.indexOf(items[1].description));
+  assert.ok(html.includes("ویرایش"));
+  assert.ok(html.includes("کارمند"));
+  assert.ok(html.includes("احمد"));
+  assert.ok(!html.includes("UPDATE"));
+});
+
+test("recent activity has correct loading/error/empty/restricted states without exposing logs to users", () => {
+  assert.ok(renderActivities({ isLoading: true }).includes("در حال دریافت فعالیت‌ها"));
+  assert.ok(renderActivities({ hasError: true }).includes("دریافت فعالیت‌ها ممکن نشد"));
+  assert.ok(renderActivities().includes("فعالیتی برای نمایش نیست"));
+  const html = renderActivities({ hasAccess: false, items: [{ description: "اطلاعات محدود" }] });
+  assert.ok(html.includes("دسترسی ویژه مدیر سیستم"));
+  assert.ok(!html.includes("اطلاعات محدود"));
+});
+
+test("dashboard keeps the latest five activities in a bounded internal feed", () => {
+  const items = Array.from({ length: 5 }, (_, index) => ({
+    id: 30 - index, action: "UPDATE", entity_type: "employee",
+    description: `فعالیت-${index + 1}: ` + "شرح طولانی فعالیت ".repeat(100),
+    user: { full_name: "احمد احمدی" }, created_at: "2026-09-28T13:00:00Z",
+  }));
+  const html = renderActivities({ items });
+  assert.equal((html.match(/<li /g) ?? []).length, 5);
+  for (const index of [1, 2, 3, 4, 5]) assert.ok(html.includes(`فعالیت-${index}:`));
+  assert.ok(html.includes("max-h-72") && html.includes("overflow-y-auto"));
+  assert.ok(html.includes("line-clamp-2") && html.includes("app-scrollbar"));
+  assert.ok(html.includes('tabindex="0"'));
+});
+
+test("dashboard page uses the four approved labels and real totals without placeholders", async () => {
+  const page = await import(moduleUrl(resolve(root, "pages/DashboardPage.tsx"), {
+    "../auth/AuthContext": "data:text/javascript," + encodeURIComponent("export const useAuth = () => ({ isAdmin: false });"),
+    "../hooks/useDashboardMetrics": "data:text/javascript," + encodeURIComponent("export const useDashboardMetrics = () => globalThis.dashboardFixture; export const useDashboardActivities = enabled => ({ activities: [], isLoading: false, hasError: false, reload() {} });"),
+  }));
+  globalThis.dashboardFixture = { summary: dashboardSummary, isLoading: false, hasError: false, reload() {} };
+  const html = renderToStaticMarkup(createElement(page.DashboardPage));
+  for (const label of ["کارمندان دیپارتمنت", "اعضای علمی", "مکاتب", "مشاهدات"]) assert.ok(html.includes(label));
+  for (const count of Object.values(dashboardSummary.totals)) assert.ok(html.includes(count.toLocaleString("fa-IR")));
+  assert.ok(!html.includes("تعداد"));
+  assert.ok(!html.includes("نسخه‌های بعدی"));
 });

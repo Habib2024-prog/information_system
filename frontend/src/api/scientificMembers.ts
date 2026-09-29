@@ -1,3 +1,4 @@
+import { DEFAULT_PAGE_SIZE } from "../lib/pagination";
 import { apiGet, apiRequest, apiFetch, apiDownload } from "./client";
 import type { PaginatedResponse, ScientificMember } from "../types/api";
 
@@ -12,7 +13,7 @@ export const emptyObservationHistoryFilters: ObservationHistoryFilters = { obser
 
 function toQuery(params: Record<string, string | number | undefined>): string { const query = new URLSearchParams(); Object.entries(params).forEach(([key, value]) => { if (value !== "" && value !== undefined) query.set(key, String(value)); }); const serialized = query.toString(); return serialized ? `?${serialized}` : ""; }
 
-export function getScientificMembers({ page = 1, page_size = 100, search = "", ...filters }: ScientificMemberListParams = {}) { return apiGet<PaginatedResponse<ScientificMember>>(`/api/scientific-members${toQuery({ page, page_size, search, ...filters })}`); }
+export function getScientificMembers({ page = 1, page_size = DEFAULT_PAGE_SIZE, search = "", ...filters }: ScientificMemberListParams = {}) { return apiGet<PaginatedResponse<ScientificMember>>(`/api/scientific-members${toQuery({ page, page_size, search, ...filters })}`); }
 export const createScientificMember = (payload: ScientificMemberPayload) => apiRequest<ScientificMember>("/api/scientific-members", { method: "POST", body: JSON.stringify(payload) });
 export const updateScientificMember = (id: number, payload: ScientificMemberPayload) => apiRequest<ScientificMember>(`/api/scientific-members/${id}`, { method: "PUT", body: JSON.stringify(payload) });
 

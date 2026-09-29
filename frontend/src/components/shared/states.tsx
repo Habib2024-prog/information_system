@@ -14,8 +14,8 @@ interface StateProps {
 function StatePanel({ title, description, icon: Icon, className }: StateProps) {
   return (
     <div className={cn("flex min-h-44 flex-col items-center justify-center rounded-xl border border-dashed border-line bg-slate-50/70 px-6 text-center", className)}>
-      <Icon className="mb-3 text-muted" size={25} strokeWidth={1.6} aria-hidden="true" />
-      <h2 className="text-sm font-semibold text-ink">{title}</h2>
+      <span className="mb-3 flex size-11 items-center justify-center rounded-xl bg-white text-accent shadow-soft"><Icon size={22} strokeWidth={1.7} aria-hidden="true" /></span>
+      <h2 className="text-sm font-bold text-ink">{title}</h2>
       <p className="mt-1.5 max-w-sm text-sm leading-6 text-muted">{description}</p>
     </div>
   );

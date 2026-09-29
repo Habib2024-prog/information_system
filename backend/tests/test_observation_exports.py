@@ -182,7 +182,7 @@ def test_amir_observation_export_has_separate_competencies_translated_result_and
     worksheet = _workbook(client.get("/api/amir-observations/export")).active
     rows = _rows_by_header(worksheet)
 
-    assert worksheet.title == "مشاهدات آمر و سرمعلم"
+    assert worksheet.title == "مشاهدات آمر، مدیر و سرمعلم"
     assert [row["شماره"] for row in rows] == [first["id"], second["id"]]
     assert rows[0]["اسم کارمند"] == "آمر اول"
     assert rows[0]["مشاهده‌کننده"] == "مریم صادقی"
@@ -290,9 +290,9 @@ def test_scientific_member_observation_history_export_uses_two_separate_sheets(
         client.get(f"/api/scientific-members/{member['id']}/observations/export")
     )
     teacher_sheet = workbook["مشاهدات معلمین"]
-    amir_sheet = workbook["مشاهدات آمر و سرمعلم"]
+    amir_sheet = workbook["مشاهدات آمر، مدیر و سرمعلم"]
 
-    assert workbook.sheetnames == ["مشاهدات معلمین", "مشاهدات آمر و سرمعلم"]
+    assert workbook.sheetnames == ["مشاهدات معلمین", "مشاهدات آمر، مدیر و سرمعلم"]
     assert [row["شماره"] for row in _rows_by_header(teacher_sheet)] == [teacher_observation["id"]]
     assert [row["شماره"] for row in _rows_by_header(amir_sheet)] == [amir_observation["id"]]
     assert "دانش مضمونی" in [cell.value for cell in teacher_sheet[1]]

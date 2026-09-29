@@ -122,6 +122,26 @@ If migration `0013` has already been applied and missing codes need repair,
 unique-key conflict guard, so competing seed runs cannot create duplicates.
 Existing codes, including soft-deleted ones, are left untouched.
 
+### Profile media storage
+
+Local development stores validated profile images under backend/uploads/profile-images
+(ignored by Git) and serves them at /media/profile-images. This is intentionally
+not permitted when APP_ENVIRONMENT=production: Render local disk is ephemeral.
+
+For production, configure persistent S3-compatible object storage:
+
+- APP_ENVIRONMENT=production
+- PROFILE_IMAGE_STORAGE_BACKEND=s3
+- PROFILE_IMAGE_S3_BUCKET
+- PROFILE_IMAGE_S3_PUBLIC_BASE_URL
+- optionally PROFILE_IMAGE_S3_REGION, PROFILE_IMAGE_S3_ENDPOINT_URL, and
+  PROFILE_IMAGE_S3_PREFIX
+
+Provide provider credentials only through Render environment variables (for AWS,
+for example AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY), never through VITE_*,
+source files, or committed .env files. The application refuses to start in
+production with local image storage or incomplete S3 configuration.
+
 ## Authentication and user administration
 
 Configure the repository-root `.env` (never commit it) before using login:
@@ -205,6 +225,30 @@ CLI/seed tools without an authenticated actor do not fabricate an audit identity
 Retention and archival policies remain undecided.
 
 ## Frontend login and administration
+
+### Dashboard data
+
+`GET /api/dashboard/summary` is authenticated for both approved roles. It
+returns database counts of active employees, Scientific Members, and Schools,
+plus counts of active Teacher and Amir/Senior Teacher observations grouped by
+their stored final-result codes. Employees are counted once from the personnel
+table, not once per department assignment. Active historical observations count
+even if their employee/observer has since been deleted; deleted observations do
+not count. The browser does not download lists to calculate totals or classify
+scores. The four statistic labels omit **تعداد**.
+
+Dashboard recent activity reuses
+`GET /api/audit-logs?page=1&page_size=5&sort_by=created_at&sort_order=desc`.
+It remains admin-only: normal users see an access explanation and do not request
+audit data. Summary and activity requests have independent loading/error/retry
+states, and empty states indicate genuinely empty data. The existing shared API
+client supplies the configured base URL and bearer token and handles expired
+sessions. No credentials or URLs are hardcoded in dashboard code.
+
+Deploy the updated backend before the updated frontend. This dashboard change
+requires **no Alembic migration, seed, or production database command**.
+
+### Login and administration
 
 Run the existing frontend with `npm install` and `npm run dev` from `frontend/`.
 Apply all backend migrations and create an initial administrator with the

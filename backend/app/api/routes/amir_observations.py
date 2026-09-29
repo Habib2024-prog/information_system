@@ -25,7 +25,7 @@ from app.services.amir_observation_service import (
 
 router = APIRouter(
     prefix="/employees/{employee_id}/amir-observations",
-    tags=["مشاهدات آمر/سرمعلم"],
+    tags=["مشاهدات آمر/مدیر/سرمعلم"],
 )
 DbSession = Annotated[Session, Depends(get_db)]
 service = AmirObservationService()
@@ -96,7 +96,7 @@ def create_observation(
     except IneligibleAmirObservationEmployeeError as error:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="مشاهده آمر/سرمعلم فقط برای آمر یا سرمعلم ثبت می‌شود.",
+            detail="مشاهده آمر/مدیر/سرمعلم فقط برای آمر، مدیر یا سرمعلم ثبت می‌شود.",
         ) from error
     except InvalidAmirObservationObserverError as error:
         raise HTTPException(

@@ -8,5 +8,5 @@ interface SectionCardProps {
 }
 
 export function SectionCard({ children, className }: SectionCardProps) {
-  return <section className={cn("glass-surface rounded-xl p-5", className)}>{children}</section>;
+  return <section className={cn("surface-card min-w-0 p-5 sm:p-6", className)}>{children}</section>;
 }

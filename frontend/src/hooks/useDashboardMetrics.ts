@@ -1,55 +1,51 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import { getDepartments } from "../api/departments";
-import { getEmployees } from "../api/employees";
-import { getSchools } from "../api/schools";
-import { getScientificMembers } from "../api/scientificMembers";
+import { getDashboardRecentActivities, getDashboardSummary, type DashboardSummary } from "../api/dashboard";
+import type { AuditLog } from "../types/audit";
 
-interface DashboardMetrics {
-  employees?: number;
-  departments?: number;
-  scientificMembers?: number;
-  schools?: number;
-}
-
-interface DashboardMetricsState {
-  metrics: DashboardMetrics;
-  isLoading: boolean;
-  hasError: boolean;
-}
-
-export function useDashboardMetrics(): DashboardMetricsState {
-  const [state, setState] = useState<DashboardMetricsState>({
-    metrics: {},
-    isLoading: true,
-    hasError: false,
-  });
+export function useDashboardMetrics() {
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const reload = useCallback(() => setRevision((value) => value + 1), []);
 
   useEffect(() => {
-    let isMounted = true;
+    let cancelled = false;
+    setSummary(null); setIsLoading(true); setHasError(false);
+    void getDashboardSummary().then((data) => {
+      if (!cancelled) setSummary(data);
+    }).catch(() => {
+      if (!cancelled) setHasError(true);
+    }).finally(() => {
+      if (!cancelled) setIsLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [revision]);
 
-    Promise.allSettled([getEmployees(), getDepartments(), getScientificMembers(), getSchools()])
-      .then(([employees, departments, scientificMembers, schools]) => {
-        if (!isMounted) return;
-        setState({
-          metrics: {
-            employees: employees.status === "fulfilled" ? employees.value.total : undefined,
-            departments: departments.status === "fulfilled" ? departments.value.length : undefined,
-            scientificMembers: scientificMembers.status === "fulfilled" ? scientificMembers.value.total : undefined,
-            schools: schools.status === "fulfilled" ? schools.value.total : undefined,
-          },
-          isLoading: false,
-          hasError: [employees, departments, scientificMembers, schools].some((result) => result.status === "rejected"),
-        });
-      })
-      .catch(() => {
-        if (isMounted) setState({ metrics: {}, isLoading: false, hasError: true });
-      });
+  return { summary, isLoading, hasError, reload };
+}
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+export function useDashboardActivities(enabled: boolean) {
+  const [activities, setActivities] = useState<AuditLog[]>([]);
+  const [isLoading, setIsLoading] = useState(enabled);
+  const [hasError, setHasError] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const reload = useCallback(() => setRevision((value) => value + 1), []);
 
-  return state;
+  useEffect(() => {
+    let cancelled = false;
+    setActivities([]); setHasError(false); setIsLoading(enabled);
+    if (!enabled) return;
+    void getDashboardRecentActivities().then((data) => {
+      if (!cancelled) setActivities(data);
+    }).catch(() => {
+      if (!cancelled) setHasError(true);
+    }).finally(() => {
+      if (!cancelled) setIsLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [enabled, revision]);
+
+  return { activities, isLoading, hasError, reload };
 }

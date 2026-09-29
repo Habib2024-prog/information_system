@@ -1,3 +1,4 @@
+import { DEFAULT_PAGE_SIZE } from "../lib/pagination";
 import { apiGet, apiRequest, apiFetch, apiDownload } from "./client";
 import type { Employee, PaginatedResponse } from "../types/api";
 
@@ -61,7 +62,7 @@ function toQuery(params: Partial<EmployeeListParams>): string {
   return serialized ? `?${serialized}` : "";
 }
 
-export const getEmployees = (params: EmployeeListParams = { ...emptyEmployeeFilters, page: 1, page_size: 20, sort_by: "id", sort_order: "asc" }) =>
+export const getEmployees = (params: EmployeeListParams = { ...emptyEmployeeFilters, page: 1, page_size: DEFAULT_PAGE_SIZE, sort_by: "id", sort_order: "asc" }) =>
   apiGet<PaginatedResponse<Employee>>(`/api/employees${toQuery(params)}`);
 export const getEmployee = (id: number) => apiGet<Employee>(`/api/employees/${id}`);
 

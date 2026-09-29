@@ -1,3 +1,4 @@
+import { DEFAULT_PAGE_SIZE } from "../lib/pagination";
 import { apiGet, apiRequest, apiFetch, apiDownload } from "./client";
 import type { PaginatedResponse, School } from "../types/api";
 
@@ -74,7 +75,7 @@ function toQuery(params: Partial<SchoolListParams>): string {
   return serialized ? `?${serialized}` : "";
 }
 
-export function getSchools(params: SchoolListParams = { ...emptySchoolFilters, page: 1, page_size: 1, sort_by: "id", sort_order: "asc" }) {
+export function getSchools(params: SchoolListParams = { ...emptySchoolFilters, page: 1, page_size: DEFAULT_PAGE_SIZE, sort_by: "id", sort_order: "asc" }) {
   return apiGet<PaginatedResponse<School>>(`/api/schools${toQuery(params)}`);
 }
 

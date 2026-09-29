@@ -6,9 +6,20 @@ from fastapi import Response
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font
 from openpyxl.utils import get_column_letter
+import jdatetime
 
 
 XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+PERSIAN_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
+
+
+def format_jalali_excel_date(value: date | datetime) -> str:
+    """Format canonical Gregorian Python dates for a human-readable Dari workbook."""
+    if isinstance(value, datetime):
+        jalali_value = jdatetime.datetime.fromgregorian(datetime=value)
+        return jalali_value.strftime("%Y/%m/%d - %H:%M").translate(PERSIAN_DIGITS)
+    jalali_value = jdatetime.date.fromgregorian(date=value)
+    return jalali_value.strftime("%Y/%m/%d").translate(PERSIAN_DIGITS)
 
 
 def build_workbook(
@@ -88,7 +99,8 @@ def _populate_worksheet(
                 cell.value = str(value)
                 cell.number_format = "@"
             elif isinstance(value, (date, datetime)):
-                cell.number_format = "yyyy-mm-dd"
+                cell.value = format_jalali_excel_date(value)
+                cell.number_format = "@"
 
     worksheet.auto_filter.ref = f"A1:{get_column_letter(len(headers))}{worksheet.max_row}"
     _set_column_widths(worksheet, headers, wrap_text_columns)

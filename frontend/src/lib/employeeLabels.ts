@@ -1,3 +1,5 @@
+export const addPersonnelLabel = "افزودن آمر/مدیر/سرمعلم/معلم";
+
 export const jobTitleLabels: Record<string, string> = {
   teacher: "معلم",
   senior_teacher: "سرمعلم",
@@ -7,7 +9,8 @@ export const jobTitleLabels: Record<string, string> = {
 
 export const fieldMatchLabels: Record<string, string> = {
   in_field: "مطابق رشته",
-  out_of_field: "خلاف رشته",
+  out_of_field: "مخالف رشته",
+  non_professional: "غیر مسلکی",
 };
 
 export const educationLevelOptions = ["۱۲ پاس", "۱۴ پاس", "لیسانس", "ماستر"];

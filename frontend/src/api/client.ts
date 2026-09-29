@@ -2,6 +2,11 @@ import { getAccessToken, getSessionRevision, setAccessToken } from "../auth/sess
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL?.trim() || "http://127.0.0.1:8000").replace(/\/+$/, "");
 
+export function apiMediaUrl(path: string | null | undefined): string | undefined {
+  if (!path) return undefined;
+  return /^https?:\/\//i.test(path) ? path : apiBaseUrl + (path.startsWith("/") ? path : `/${path}`);
+}
+
 export class ApiError extends Error {
   constructor(message: string, public readonly status: number) {
     super(message);
