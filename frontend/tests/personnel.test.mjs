@@ -104,6 +104,19 @@ test("create form offers all three statuses and uses the new add-personnel title
   }
 });
 
+test("employee form reuses the shared strict phone-number control", () => {
+  const source = readFileSync(resolve(root, "components/employees/EmployeeFormDialog.tsx"), "utf8");
+  assert.match(source, /from "\.\.\/\.\.\/lib\/phone"/);
+  assert.match(source, /getPhoneNumberError\(values\.phone_number\)/);
+  assert.match(source, /normalizePhoneDigits\(event\.target\.value\)/);
+  assert.match(source, /type="tel"/);
+  assert.match(source, /maxLength=\{10\}/);
+  const html = renderToStaticMarkup(createElement(EmployeeFormDialog, {
+    open: true, onOpenChange: noop, departments: [], onSaved: noop,
+  }));
+  assert.ok(html.includes('type="tel"'));
+});
+
 for (const [code, label] of Object.entries(statuses)) {
   test(`edit, details, and desktop/mobile rows display ${code} consistently`, () => {
     const record = { ...employee, field_match_code: code };

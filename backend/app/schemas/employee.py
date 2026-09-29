@@ -1,8 +1,9 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictStr, field_validator
 
+from app.common.phone_numbers import normalize_phone_number
 from app.schemas.department import DepartmentRead
 
 
@@ -12,7 +13,7 @@ class EmployeeWrite(BaseModel):
     grandfather_name: str = Field(min_length=1)
     school_workplace: str = Field(min_length=1)
     city_district: str = Field(min_length=1)
-    phone_number: str = Field(min_length=1)
+    phone_number: StrictStr
     field_of_study: str = Field(min_length=1)
     education_level: str = Field(min_length=1)
     subjects_taught: str = Field(min_length=1)
@@ -24,6 +25,13 @@ class EmployeeWrite(BaseModel):
     field_match_code: str = Field(min_length=1, max_length=100)
     notes: str | None = None
     department_ids: list[int] = Field(default_factory=list)
+
+    @field_validator("phone_number")
+    @classmethod
+    def validate_phone_number(cls, value: str) -> str:
+        normalized = normalize_phone_number(value, optional=False)
+        assert normalized is not None
+        return normalized
 
 
 class EmployeeCreate(EmployeeWrite):
