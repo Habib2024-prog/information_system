@@ -1,18 +1,12 @@
-export const schoolPhoneErrorMessage = "شماره تماس معتبر نیست.";
+import { getPhoneNumberError, normalizePhoneNumber, phoneNumberErrorMessage } from "./phone";
 
-export function normalizeSchoolPhone(value: string | null): string | null {
-  return value?.trim() || null;
+// Keep this module as a compatibility boundary for school-specific consumers.
+export const schoolPhoneErrorMessage = phoneNumberErrorMessage;
+
+export function normalizeSchoolPhone(value: string | null | undefined): string | null {
+  return normalizePhoneNumber(value);
 }
 
-export function getSchoolPhoneError(value: string | null): string | undefined {
-  const phone = normalizeSchoolPhone(value);
-  if (phone === null) return undefined;
-  // Match SchoolWrite validation; do not coerce phone numbers to numeric values.
-  const digits = "0-9۰-۹٠-٩";
-  const group = `(?:[${digits}]+|\\([${digits}]+\\))`;
-  const pattern = new RegExp(`^\\+?${group}(?: *(?:[.-] *)?${group})*$`);
-  const digitCount = phone.match(new RegExp(`[${digits}]`, "g"))?.length ?? 0;
-  return digitCount >= 7 && digitCount <= 15 && pattern.test(phone)
-    ? undefined
-    : schoolPhoneErrorMessage;
+export function getSchoolPhoneError(value: string | null | undefined): string | undefined {
+  return getPhoneNumberError(value, true);
 }

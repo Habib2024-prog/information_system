@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { createScientificMember, updateScientificMember, type ScientificMemberPayload } from "../../api/scientificMembers";
 import { getDepartmentLabel } from "../../lib/departmentLabels";
+import { getPhoneNumberError, normalizePhoneDigits, normalizePhoneNumber } from "../../lib/phone";
 import type { Department, ScientificMember } from "../../types/api";
 import { AppDialog } from "../shared/AppDialog";
 import { SearchableSelect, type SelectOption } from "../shared/SearchableSelect";
@@ -20,6 +21,7 @@ const blank = { name: "", surname: "", father_name: "", phone_number: "", academ
 export function ScientificMemberFormDialog({ open, onOpenChange, member, departments, onSaved }: Props) {
   const [values, setValues] = useState(blank);
   const [error, setError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
   const [saving, setSaving] = useState(false);
   const departmentOptions: SelectOption[] = departments.map((department) => ({ value: String(department.id), label: getDepartmentLabel(department.code, department.display_name) }));
 
@@ -27,18 +29,29 @@ export function ScientificMemberFormDialog({ open, onOpenChange, member, departm
     if (!open) return;
     setValues(member ? { name: member.name, surname: member.surname, father_name: member.father_name, phone_number: member.phone_number, academic_rank: member.academic_rank, department_id: String(member.department_id), notes: member.notes ?? "" } : blank);
     setError("");
+    setPhoneError("");
   }, [member, open]);
 
   const set = (key: keyof typeof values, value: string) => setValues((current) => ({ ...current, [key]: value }));
+  const setPhone = (value: string) => {
+    set("phone_number", normalizePhoneDigits(value));
+    setPhoneError("");
+  };
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const nextPhoneError = getPhoneNumberError(values.phone_number);
+    if (nextPhoneError) {
+      setPhoneError(nextPhoneError);
+      setError("");
+      return;
+    }
     if (!values.name.trim() || !values.surname.trim() || !values.father_name.trim() || !values.phone_number.trim() || !values.academic_rank.trim() || !values.department_id) {
       setError("تمام فیلدهای الزامی را تکمیل کنید.");
       return;
     }
     setSaving(true);
     setError("");
-    const payload: ScientificMemberPayload = { ...values, name: values.name.trim(), surname: values.surname.trim(), father_name: values.father_name.trim(), phone_number: values.phone_number.trim(), academic_rank: values.academic_rank.trim(), department_id: Number(values.department_id), notes: values.notes.trim() || null };
+    const payload: ScientificMemberPayload = { ...values, name: values.name.trim(), surname: values.surname.trim(), father_name: values.father_name.trim(), phone_number: normalizePhoneNumber(values.phone_number) ?? "", academic_rank: values.academic_rank.trim(), department_id: Number(values.department_id), notes: values.notes.trim() || null };
     try {
       if (member) {
         await updateScientificMember(member.id, payload);
@@ -62,7 +75,7 @@ export function ScientificMemberFormDialog({ open, onOpenChange, member, departm
           <Field label="اسم"><input className="input" value={values.name} onChange={(event) => set("name", event.target.value)} /></Field>
           <Field label="تخلص"><input className="input" value={values.surname} onChange={(event) => set("surname", event.target.value)} /></Field>
           <Field label="ولد"><input className="input" value={values.father_name} onChange={(event) => set("father_name", event.target.value)} /></Field>
-          <Field label="شماره تماس"><input dir="ltr" className="input" value={values.phone_number} onChange={(event) => set("phone_number", event.target.value)} /></Field>
+          <Field label="شماره تماس" error={phoneError}><input type="tel" inputMode="numeric" autoComplete="tel" maxLength={10} dir="ltr" aria-invalid={Boolean(phoneError)} className={`input ${phoneError ? "border-rose-500 focus:border-rose-500 focus:ring-rose-100" : ""}`} value={values.phone_number} onChange={(event) => setPhone(event.target.value)} onBlur={() => { const phone = normalizePhoneNumber(values.phone_number) ?? ""; set("phone_number", phone); setPhoneError(getPhoneNumberError(phone) ?? ""); }} /></Field>
           <Field label="رتبه علمی"><input className="input" value={values.academic_rank} onChange={(event) => set("academic_rank", event.target.value)} /></Field>
           <Field label="دیپارتمنت"><SearchableSelect value={values.department_id} options={departmentOptions} onChange={(value) => set("department_id", value)} placeholder="انتخاب دیپارتمنت" searchPlaceholder="جستجوی دیپارتمنت" /></Field>
         </div>
@@ -73,6 +86,6 @@ export function ScientificMemberFormDialog({ open, onOpenChange, member, departm
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="block"><span className="mb-1.5 block text-sm font-medium text-ink">{label}</span>{children}</label>;
+function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+  return <label className="block"><span className="mb-1.5 block text-sm font-medium text-ink">{label}</span>{children}{error ? <p role="alert" className="mt-1 text-xs text-rose-700">{error}</p> : null}</label>;
 }

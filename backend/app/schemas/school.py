@@ -1,8 +1,9 @@
-import re
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, StrictStr, field_validator, model_validator
+
+from app.common.phone_numbers import normalize_phone_number
 
 
 class SchoolGradeSectionWrite(BaseModel):
@@ -75,7 +76,7 @@ class SchoolGradeStatisticRead(BaseModel):
 
 class SchoolWrite(BaseModel):
     school_name: str = Field(min_length=1)
-    school_head_phone: str | None = None
+    school_head_phone: StrictStr | None = None
     school_type_code: str = Field(min_length=1, max_length=100)
     gender_type_code: str = Field(min_length=1, max_length=100)
     school_code: str = Field(min_length=1, max_length=100)
@@ -94,17 +95,7 @@ class SchoolWrite(BaseModel):
     @field_validator("school_head_phone")
     @classmethod
     def validate_school_head_phone(cls, value: str | None) -> str | None:
-        if value is None or not value.strip():
-            return None
-        value = value.strip()
-        # Keep local/international formatting and leading zeroes as text.
-        digits = "0-9۰-۹٠-٩"
-        group = rf"(?:[{digits}]+|\([{digits}]+\))"
-        pattern = rf"\+?{group}(?: *(?:[.-] *)?{group})*"
-        digit_count = len(re.findall(rf"[{digits}]", value))
-        if not 7 <= digit_count <= 15 or re.fullmatch(pattern, value) is None:
-            raise ValueError("شماره تماس معتبر نیست.")
-        return value
+        return normalize_phone_number(value, optional=True)
 
     @field_validator("school_type_code", "gender_type_code")
     @classmethod

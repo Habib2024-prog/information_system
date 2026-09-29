@@ -1,6 +1,7 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from app.common.audit_codes import AuditAction, AuditEntity
+from app.common.username_normalization import normalize_username
 from app.services.audit_service import audit_service, record_snapshot
 
 from app.core.security import hash_password
@@ -35,10 +36,12 @@ class UserService:
         return to_user_read(self._require_user(db, user_id))
 
     def create_user(self, db: Session, data: UserCreate) -> UserRead:
-        self._ensure_username_available(db, data.username)
+        username_normalized = normalize_username(data.username)
+        self._ensure_username_available(db, username_normalized)
         try:
             user = self.repository.create(db, {
                 **data.model_dump(exclude={"password"}),
+                "username_normalized": username_normalized,
                 "password_hash": hash_password(data.password.get_secret_value()),
             })
         except IntegrityError as error:
@@ -50,11 +53,11 @@ class UserService:
 
     def update_user(self, db: Session, user_id: int, data: UserUpdate) -> UserRead:
         user = self._require_user(db, user_id)
-        if data.username != user.username:
-            self._ensure_username_available(db, data.username)
+        username_normalized = normalize_username(data.username)
+        self._ensure_username_available(db, username_normalized, excluding_user_id=user.id)
         before = record_snapshot(user)
         try:
-            self.repository.update(db, user, data.model_dump())
+            self.repository.update(db, user, {**data.model_dump(), "username_normalized": username_normalized})
         except IntegrityError as error:
             db.rollback()
             raise UsernameExistsError from error
@@ -136,8 +139,15 @@ class UserService:
             raise ProfileImagePermissionError
         return user
 
-    def _ensure_username_available(self, db: Session, username: str) -> None:
-        if self.repository.get_by_username(db, username) is not None:
+    def _ensure_username_available(
+        self,
+        db: Session,
+        username: str,
+        *,
+        excluding_user_id: int | None = None,
+    ) -> None:
+        existing = self.repository.get_by_username(db, username)
+        if existing is not None and existing.id != excluding_user_id:
             raise UsernameExistsError
 
     @staticmethod

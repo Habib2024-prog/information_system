@@ -83,11 +83,12 @@ function find(node, predicate) {
 const field = (tree, label) => find(tree, node => node.type?.name === "Field" && node.props.label === label);
 const input = (tree) => field(tree, "شماره تماس مسئول مکتب").props.children;
 const {getSchoolPhoneError, normalizeSchoolPhone} = await import(moduleUrl(resolve(root, "lib/schoolPhone.ts")));
+const {getPhoneNumberError, normalizePhoneNumber} = await import(moduleUrl(resolve(root, "lib/phone.ts")));
 const {SchoolFormDialog} = await import(moduleUrl(resolve(root, "components/schools/SchoolFormDialog.tsx"), true));
 const {SchoolDetailsDialog} = await import(moduleUrl(resolve(root, "components/schools/SchoolDetailsDialog.tsx")));
 const {schoolServiceCountLabels} = await import(moduleUrl(resolve(root, "lib/schoolLabels.ts")));
 const school = {
-  id: 7, school_name: "لیسه استقلال", school_head_phone: "(070) 123-4567",
+  id: 7, school_name: "لیسه استقلال", school_head_phone: "0701234567",
   school_code: "SCH001", school_type_code: "high_school", gender_type_code: "mixed",
   school_type_display_name: "لیسه", gender_type_display_name: "مختلط", school_formation: "رسمی",
   senior_teacher_count: 1, male_teacher_count: 1, female_teacher_count: 1,
@@ -97,10 +98,27 @@ const school = {
 };
 beforeEach(() => { globalThis.schoolRequests = []; });
 
-for (const phone of ["0701234567", "0791234567", " 0701234567 ", "+93701234567", "+93 70 123 4567", "0093 70 123 4567", "(070) 123-4567", "+93 (0) 701-234-567", "070.123.4567", "۰۷۰۱۲۳۴۵۶۷", "٠٧٠١٢٣٤٥٦٧"]) {
-  test(`school phone accepts and preserves ${phone}`, () => {
+test("central phone helper accepts Persian/Arabic digits but rejects noncanonical formats", () => {
+  assert.equal(normalizePhoneNumber("۰۷۱۲۳۴۵۶۷۸"), "0712345678");
+  assert.equal(normalizePhoneNumber("٠٧١٢٣٤٥٦٧٨"), "0712345678");
+  assert.equal(getPhoneNumberError("0712345678"), undefined);
+  for (const phone of ["071234567", "07123456789", "0712 345678", "0712-345678", "phone"]) {
+    assert.equal(getPhoneNumberError(phone), "شماره تماس باید دقیقاً ۱۰ رقم باشد.");
+  }
+});
+
+test("scientific-member form uses the shared tel control and validation helper", () => {
+  const source = readFileSync(resolve(root, "components/scientific-members/ScientificMemberFormDialog.tsx"), "utf8");
+  assert.match(source, /from "\.\.\/\.\.\/lib\/phone"/);
+  assert.match(source, /type="tel"/);
+  assert.match(source, /maxLength=\{10\}/);
+  assert.match(source, /getPhoneNumberError\(values\.phone_number\)/);
+});
+
+for (const [phone, expected] of [["0701234567", "0701234567"], ["0791234567", "0791234567"], [" 0701234567 ", "0701234567"], ["۰۷۰۱۲۳۴۵۶۷", "0701234567"], ["٠٧٠١٢٣٤٥٦٧", "0701234567"]]) {
+  test(`school phone accepts and canonicalizes ${phone}`, () => {
     assert.equal(getSchoolPhoneError(phone), undefined);
-    assert.equal(normalizeSchoolPhone(phone), phone.trim());
+    assert.equal(normalizeSchoolPhone(phone), expected);
   });
 }
 for (const phone of [null, "", "   "]) {
@@ -109,9 +127,9 @@ for (const phone of [null, "", "   "]) {
     assert.equal(normalizeSchoolPhone(phone), null);
   });
 }
-for (const phone of ["abc", "070abc4567", "شماره", "123", "1234567890123456", "++93701234567", "070--1234567", "070...1234567", "070/1234567", "(0701234567", "0701234567)", "070()1234567", "0701234567-", "070\n1234567"]) {
+for (const phone of ["abc", "070abc4567", "شماره", "123", "12345678901", "+93701234567", "+93 70 123 4567", "(070) 123-4567", "070--1234567", "070.123.4567", "070/1234567", "0701234567-", "070\n1234567"]) {
   test(`school phone rejects ${JSON.stringify(phone)} with Dari feedback`, () => {
-    assert.equal(getSchoolPhoneError(phone), "شماره تماس معتبر نیست.");
+    assert.equal(getSchoolPhoneError(phone), "شماره تماس باید دقیقاً ۱۰ رقم باشد.");
   });
 }
 
@@ -125,7 +143,8 @@ test("create/edit form and details share the new service count terminology", () 
     assert.ok(!html.includes("معلم خدماتی"));
     const control = input(tree);
     assert.equal(control.props.type, "tel");
-    assert.equal(control.props.inputMode, "tel");
+    assert.equal(control.props.inputMode, "numeric");
+    assert.equal(control.props.maxLength, 10);
     assert.equal(control.props.autoComplete, "tel");
     assert.equal(control.props.dir, "ltr");
     assert.equal(control.props.value, record?.school_head_phone ?? "");
@@ -145,7 +164,7 @@ test("school edit validates phone without clearing other values or submitting in
   tree = harness.render(props);
   input(tree).props.onBlur();
   tree = harness.render(props);
-  assert.equal(field(tree, "شماره تماس مسئول مکتب").props.error, "شماره تماس معتبر نیست.");
+  assert.equal(field(tree, "شماره تماس مسئول مکتب").props.error, "شماره تماس باید دقیقاً ۱۰ رقم باشد.");
   assert.equal(input(tree).props["aria-invalid"], true);
   await find(tree, node => node.type === "form").props.onSubmit({preventDefault() {}});
   assert.equal(globalThis.schoolRequests.length, 0);

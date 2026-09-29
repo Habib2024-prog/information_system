@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.common.username_normalization import normalize_username
 from app.models.user import User
 
 
@@ -12,7 +13,7 @@ class UserRepository:
 
     def get_by_username(self, db: Session, username: str) -> User | None:
         # The global unique constraint reserves a username after deletion as well.
-        return db.scalar(select(User).where(User.username == username))
+        return db.scalar(select(User).where(User.username_normalized == normalize_username(username)))
 
     def list_users(self, db: Session, *, offset: int, limit: int) -> tuple[list[User], int]:
         active_records = User.deleted_at.is_(None)

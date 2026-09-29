@@ -68,4 +68,4 @@ AUDIT_IDENTITY_FIELDS = {
     AuditEntity.USER: ("username", "full_name"),
 }
 
-AUDIT_UPDATE_IGNORED_FIELDS = frozenset({"id", "created_at", "updated_at"})
+AUDIT_UPDATE_IGNORED_FIELDS = frozenset({"id", "created_at", "updated_at", "username_normalized"})

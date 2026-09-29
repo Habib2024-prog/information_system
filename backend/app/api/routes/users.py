@@ -18,7 +18,7 @@ def user_not_found() -> HTTPException:
 
 
 def username_exists() -> HTTPException:
-    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail="نام کاربری قبلاً ثبت شده است.")
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail="این نام کاربری یا شکل معادل آن قبلاً ثبت شده است.")
 
 
 @router.get("", response_model=UserListResponse)

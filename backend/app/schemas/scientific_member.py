@@ -2,8 +2,9 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictStr, field_validator
 
+from app.common.phone_numbers import normalize_phone_number
 from app.schemas.department import DepartmentRead
 
 
@@ -11,10 +12,17 @@ class ScientificMemberWrite(BaseModel):
     name: str = Field(min_length=1)
     surname: str = Field(min_length=1)
     father_name: str = Field(min_length=1)
-    phone_number: str = Field(min_length=1)
+    phone_number: StrictStr
     academic_rank: str = Field(min_length=1)
     department_id: int
     notes: str | None = None
+
+    @field_validator("phone_number")
+    @classmethod
+    def validate_phone_number(cls, value: str) -> str:
+        normalized = normalize_phone_number(value, optional=False)
+        assert normalized is not None
+        return normalized
 
 
 class ScientificMemberCreate(ScientificMemberWrite):

@@ -151,6 +151,16 @@ test("user create and update send only approved public fields, never hashes", as
   assert.ok(!requests.some(({ init }) => init.body.includes("password_hash")));
 });
 
+test("a normalized-username conflict is shown with the server's clear Dari message", async () => {
+  session.setAccessToken("test-session");
+  const detail = "این نام کاربری یا شکل معادل آن قبلاً ثبت شده است.";
+  globalThis.fetch = async () => Response.json({ detail }, { status: 409 });
+  await assert.rejects(
+    users.createUser({ username: "حبيب", full_name: "کاربر آزمایشی", password: "test-password", role_code: "user", is_active: true }),
+    (error) => error.status === 409 && error.message === detail,
+  );
+});
+
 test("workbook 401 clears the session just like JSON requests", async () => {
   session.setAccessToken("test-session");
   globalThis.fetch = async () => new Response(null, { status: 401 });

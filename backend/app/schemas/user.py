@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 from app.common.role_codes import RoleCode
+from app.common.username_normalization import normalize_username
 
 
 class UserWrite(BaseModel):
@@ -12,9 +13,19 @@ class UserWrite(BaseModel):
     role_code: RoleCode
     is_active: bool = True
 
-    @field_validator("username", "full_name")
+    @field_validator("username")
     @classmethod
-    def validate_required_text(cls, value: str) -> str:
+    def validate_username(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("این فیلد الزامی است.")
+        if not normalize_username(value):
+            raise ValueError("نام کاربری معتبر نیست.")
+        return value
+
+    @field_validator("full_name")
+    @classmethod
+    def validate_full_name(cls, value: str) -> str:
         value = value.strip()
         if not value:
             raise ValueError("این فیلد الزامی است.")
