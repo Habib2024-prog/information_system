@@ -113,7 +113,10 @@ export function ObservationsPage() {
     try {
       if (tab === "teacher") await deleteTeacherObservation(item.employee_id, item.id); else await deleteAmirObservation(item.employee_id, item.id);
       showToast("مشاهده حذف شد."); void load();
-    } catch { showToast("حذف مشاهده با مشکل روبه‌رو شد.", "error"); }
+    } catch (error) {
+      showToast("حذف مشاهده با مشکل روبه‌رو شد.", "error");
+      throw error;
+    }
   }
   function chooseEmployee(employee: Employee) {
     const kind = getObservationFormKind(employee.job_title_code);
@@ -162,7 +165,7 @@ export function ObservationsPage() {
       <FilterSelect className="lg:col-span-2" value={filters.observer_scientific_member_id} onChange={(value) => setFilter("observer_scientific_member_id", value)} label="مشاهده‌کننده"><option value="">همه مشاهده‌کنندگان</option>{members.map((member) => <option key={member.id} value={member.id}>{member.name} {member.surname}</option>)}</FilterSelect>
       <FilterSelect value={filters.final_result_code} onChange={(value) => setFilter("final_result_code", value)} label="نتیجه"><option value="">همه نتیجه‌ها</option>{(tab === "teacher" ? ["needs_improvement", "has_capability", "mastery"] : ["basic_capability", "applied_capability", "mastery"]).map((code) => <option key={code} value={code}>{getFinalResultLabel(code, resultType)}</option>)}</FilterSelect>
     </FilterToolbar>
-    {!dateRangeValid ? null : loading ? <LoadingState title="در حال دریافت مشاهدات" description="لطفاً چند لحظه صبر کنید." /> : error ? <ErrorState title="دریافت اطلاعات ممکن نشد" description={error} onRetry={() => void load()} /> : items.length === 0 ? <EmptyState title={`مشاهده‌ای برای ${typeLabel} یافت نشد`} description="فیلترها را تغییر دهید یا مشاهده جدیدی ثبت کنید." /> : <><ObservationTable items={items} tab={tab} onDetail={openDetail} onEdit={edit} onDelete={(item) => void remove(item)} /><PaginationControls page={page} total={total} totalPages={totalPages} pageSize={pageSize} onPageChange={setPage} /></>}
+    {!dateRangeValid ? null : loading ? <LoadingState title="در حال دریافت مشاهدات" description="لطفاً چند لحظه صبر کنید." /> : error ? <ErrorState title="دریافت اطلاعات ممکن نشد" description={error} onRetry={() => void load()} /> : items.length === 0 ? <EmptyState title={`مشاهده‌ای برای ${typeLabel} یافت نشد`} description="فیلترها را تغییر دهید یا مشاهده جدیدی ثبت کنید." /> : <><ObservationTable items={items} tab={tab} onDetail={openDetail} onEdit={edit} onDelete={remove} /><PaginationControls page={page} total={total} totalPages={totalPages} pageSize={pageSize} onPageChange={setPage} /></>}
     <EmployeePicker open={employeePickerOpen} filters={employeePickerFilters} departments={departments} page={employeePickerPage} total={employeeChoicesTotal} loading={pickerLoading} employees={employeeChoices} onFiltersChange={(nextFilters) => { setEmployeePickerFilters(nextFilters); setEmployeePickerPage(1); }} onPageChange={setEmployeePickerPage} onOpenChange={setEmployeePickerOpen} onSelect={chooseEmployee} />
     <ObservationFormDialog employee={selectedEmployee} kind={formKind} initialObservation={editing} onOpenChange={(open) => { if (!open) { setSelectedEmployee(null); setFormKind(null); setEditing(null); } }} onSaved={() => { showToast(editing ? "مشاهده ویرایش شد." : "مشاهده ثبت شد."); setSelectedEmployee(null); setFormKind(null); setEditing(null); void load(); }} />
     <ObservationDetailDialog open={Boolean(detail)} onOpenChange={(open) => { if (!open) setDetail(null); }} kind={detail?.kind === "teacher" ? "teacher" : "amir_senior_teacher"} identity={detail ? { employeeName: detail.item.employee_name, fatherName: detail.item.employee_father_name, workplace: detail.item.employee_school_workplace, jobTitleCode: detail.item.employee_job_title_code } : null} data={detail?.data ?? null} />
@@ -182,7 +185,7 @@ function FilterSelect({ children, value, onChange, label, className }: { childre
   return <SearchableSelect className={className} value={value} onChange={onChange} placeholder={label} options={options} />;
 }
 
-function ObservationTable({ items, tab, onDetail, onEdit, onDelete }: { items: ObservationListItem[]; tab: ObservationTab; onDetail: (item: ObservationListItem) => void; onEdit: (item: ObservationListItem) => void; onDelete: (item: ObservationListItem) => void }) {
+function ObservationTable({ items, tab, onDetail, onEdit, onDelete }: { items: ObservationListItem[]; tab: ObservationTab; onDetail: (item: ObservationListItem) => void; onEdit: (item: ObservationListItem) => void; onDelete: (item: ObservationListItem) => Promise<void> }) {
   const resultType = tab === "teacher" ? "teacher" : "amir_senior_teacher";
 
   return <>

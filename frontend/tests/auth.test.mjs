@@ -277,6 +277,26 @@ test("a successful observation deletion notifies an open dashboard to refetch", 
   unsubscribe();
 });
 
+test("a failed observation deletion leaves dashboard data untouched and rejects the request", async () => {
+  session.setAccessToken("test-session");
+  globalThis.window = new EventTarget();
+  let refreshes = 0;
+  const unsubscribe = dashboardRefresh.subscribeDashboardInvalidation(() => { refreshes += 1; });
+  globalThis.fetch = async () => new Response(null, { status: 500 });
+  await assert.rejects(observations.deleteTeacherObservation(14, 22), { status: 500 });
+  assert.equal(refreshes, 0);
+  unsubscribe();
+});
+
+test("observation confirmation waits for the deletion request instead of closing optimistically", () => {
+  const confirmation = readFileSync(resolve(root, "components/shared/ConfirmDialog.tsx"), "utf8");
+  const observationsPage = readFileSync(resolve(root, "pages/ObservationsPage.tsx"), "utf8");
+  assert.match(confirmation, /await onConfirm\(\)/);
+  assert.match(confirmation, /disabled=\{isConfirming\}/);
+  assert.match(observationsPage, /onDelete=\{remove\}/);
+  assert.match(observationsPage, /showToast\("حذف مشاهده با مشکل روبه‌رو شد\.", "error"\);\s*throw error;/);
+});
+
 test("dashboard recent activity reuses a bounded newest-first authenticated audit request", async () => {
   session.setAccessToken("test-session");
   const items = [{ id: 12, description: "آخرین فعالیت" }, { id: 11, description: "فعالیت پیشین" }];

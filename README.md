@@ -232,10 +232,10 @@ Retention and archival policies remain undecided.
 returns database counts of active employees, Scientific Members, and Schools,
 plus counts of active Teacher and Amir/Senior Teacher observations grouped by
 their stored final-result codes. Employees are counted once from the personnel
-table, not once per department assignment. Active historical observations count
-even if their employee/observer has since been deleted; deleted observations do
-not count. The browser does not download lists to calculate totals or classify
-scores. The four statistic labels omit **تعداد**.
+table, not once per department assignment. An observation is counted only when
+the observation, its employee, and its observer are active, matching the
+observation lists exactly. The browser does not download lists to calculate
+totals or classify scores. The four statistic labels omit **تعداد**.
 
 Dashboard recent activity reuses
 `GET /api/audit-logs?page=1&page_size=5&sort_by=created_at&sort_order=desc`.

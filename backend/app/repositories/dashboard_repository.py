@@ -24,16 +24,23 @@ class DashboardRepository:
         return db.execute(select(*counts)).mappings().one()
 
     def get_observation_result_counts(self, db: Session) -> list[RowMapping]:
+        # Match the global observation lists exactly: an observation is visible
+        # only when its own row, its employee, and its observer are all active.
         # Aggregate persisted result codes; do not recalculate scores or bands.
-        # Active historical observations still count if their employee/observer
-        # was subsequently deleted, since the observation itself still exists.
         statements = [
             select(
                 literal(observation_type).label("observation_type"),
                 model.final_result_code.label("final_result_code"),
                 func.count().label("count"),
             )
-            .where(model.deleted_at.is_(None))
+            .select_from(model)
+            .join(Employee, Employee.id == model.employee_id)
+            .join(ScientificMember, ScientificMember.id == model.observer_scientific_member_id)
+            .where(
+                model.deleted_at.is_(None),
+                Employee.deleted_at.is_(None),
+                ScientificMember.deleted_at.is_(None),
+            )
             .group_by(model.final_result_code)
             for observation_type, model in (
                 ("teacher", TeacherObservation),
