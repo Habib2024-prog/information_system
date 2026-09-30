@@ -11,6 +11,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 // Compile the real TypeScript modules in memory. No new test framework or build files.
 const require = createRequire(import.meta.url);
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../src");
+const routerLinkStub = "data:text/javascript," + encodeURIComponent(`import { createElement } from ${JSON.stringify(pathToFileURL(require.resolve("react")).href)}; export const Link = ({ to, children, ...props }) => createElement("a", { href: to, ...props }, children);`);
 const cache = new Map();
 function moduleUrl(path, overrides = {}) {
   const cacheKey = path + JSON.stringify(overrides);
@@ -39,6 +40,8 @@ const audit = await import(moduleUrl(resolve(root, "lib/auditLabels.ts")));
 const logs = await import(moduleUrl(resolve(root, "api/auditLogs.ts")));
 const labels = await import(moduleUrl(resolve(root, "lib/authLabels.ts")));
 const dashboard = await import(moduleUrl(resolve(root, "api/dashboard.ts")));
+const dashboardRefresh = await import(moduleUrl(resolve(root, "lib/dashboardRefresh.ts")));
+const observations = await import(moduleUrl(resolve(root, "api/observations.ts")));
 let requests;
 beforeEach(() => {
   session.setAccessToken(null);
@@ -240,14 +243,48 @@ test("dashboard reads backend totals in one authenticated summary request withou
   assert.equal(requests[0].init.headers.get("Authorization"), "Bearer test-session");
 });
 
+test("dashboard normalizes a real zero without retaining a stale observation breakdown", () => {
+  const summary = dashboard.normalizeDashboardSummary({
+    totals: { employees: 0, scientific_members: 0, schools: 0, observations: 0 },
+    observation_overview: dashboardSummary.observation_overview,
+  });
+  assert.deepEqual(summary.totals, { employees: 0, scientific_members: 0, schools: 0, observations: 0 });
+  assert.deepEqual(summary.observation_overview, [
+    { observation_type: "teacher", total: 0, results: [] },
+    { observation_type: "amir_senior_teacher", total: 0, results: [] },
+  ]);
+});
+
+test("dashboard refresh notifications are targeted and observable by an open dashboard", () => {
+  globalThis.window = new EventTarget();
+  let refreshes = 0;
+  const unsubscribe = dashboardRefresh.subscribeDashboardInvalidation(() => { refreshes += 1; });
+  dashboardRefresh.invalidateDashboard();
+  assert.equal(refreshes, 1);
+  unsubscribe();
+  dashboardRefresh.invalidateDashboard();
+  assert.equal(refreshes, 1);
+});
+
+test("a successful observation deletion notifies an open dashboard to refetch", async () => {
+  session.setAccessToken("test-session");
+  globalThis.window = new EventTarget();
+  let refreshes = 0;
+  const unsubscribe = dashboardRefresh.subscribeDashboardInvalidation(() => { refreshes += 1; });
+  globalThis.fetch = async () => new Response(null, { status: 204 });
+  await observations.deleteTeacherObservation(14, 22);
+  assert.equal(refreshes, 1);
+  unsubscribe();
+});
+
 test("dashboard recent activity reuses a bounded newest-first authenticated audit request", async () => {
   session.setAccessToken("test-session");
   const items = [{ id: 12, description: "آخرین فعالیت" }, { id: 11, description: "فعالیت پیشین" }];
-  globalThis.fetch = async (url, init) => { requests.push({ url, init }); return Response.json({ items, total: 500, page: 1, page_size: 3 }); };
+  globalThis.fetch = async (url, init) => { requests.push({ url, init }); return Response.json({ items, total: 500, page: 1, page_size: 5 }); };
   assert.deepEqual(await dashboard.getDashboardRecentActivities(), items);
   const url = new URL(requests[0].url);
   assert.equal(url.pathname, "/api/audit-logs");
-  assert.equal(url.searchParams.get("page_size"), "3");
+  assert.equal(url.searchParams.get("page_size"), "5");
   assert.equal(url.searchParams.get("page"), "1");
   assert.equal(url.searchParams.get("sort_by"), "created_at");
   assert.equal(url.searchParams.get("sort_order"), "desc");
@@ -294,8 +331,8 @@ test("overview distinguishes loading, API errors, and legitimately empty observa
   const error = renderOverview({ hasError: true });
   assert.ok(error.includes("دریافت مشاهدات ممکن نشد"));
   assert.ok(error.includes("دوباره تلاش کنید"));
-  assert.ok(!error.includes("مشاهده‌ای ثبت نشده است"));
-  assert.ok(renderOverview().includes("مشاهده‌ای ثبت نشده است"));
+  assert.ok(!error.includes("هنوز هیچ مشاهده‌ای ثبت نشده است"));
+  assert.ok(renderOverview().includes("هنوز هیچ مشاهده‌ای ثبت نشده است"));
 });
 
 test("recent activities show real records in API order and localized action/entity labels", () => {
@@ -338,6 +375,7 @@ test("dashboard page uses the four approved labels and real totals without place
   const page = await import(moduleUrl(resolve(root, "pages/DashboardPage.tsx"), {
     "../auth/AuthContext": "data:text/javascript," + encodeURIComponent("export const useAuth = () => ({ isAdmin: false });"),
     "../hooks/useDashboardMetrics": "data:text/javascript," + encodeURIComponent("export const useDashboardMetrics = () => globalThis.dashboardFixture; export const useDashboardActivities = enabled => ({ activities: [], isLoading: false, hasError: false, reload() {} });"),
+    "react-router-dom": routerLinkStub,
   }));
   globalThis.dashboardFixture = { summary: dashboardSummary, isLoading: false, hasError: false, reload() {} };
   const html = renderToStaticMarkup(createElement(page.DashboardPage));
@@ -345,4 +383,22 @@ test("dashboard page uses the four approved labels and real totals without place
   for (const count of Object.values(dashboardSummary.totals)) assert.ok(html.includes(count.toLocaleString("fa-IR")));
   assert.ok(!html.includes("تعداد"));
   assert.ok(!html.includes("نسخه‌های بعدی"));
+});
+
+test("dashboard page renders a valid zero and the observation empty state instead of old values", async () => {
+  const page = await import(moduleUrl(resolve(root, "pages/DashboardPage.tsx"), {
+    "../auth/AuthContext": "data:text/javascript," + encodeURIComponent("export const useAuth = () => ({ isAdmin: false });"),
+    "../hooks/useDashboardMetrics": "data:text/javascript," + encodeURIComponent("export const useDashboardMetrics = () => globalThis.dashboardFixture; export const useDashboardActivities = () => ({ activities: [], isLoading: false, hasError: false, reload() {} });"),
+    "react-router-dom": routerLinkStub,
+  }));
+  globalThis.dashboardFixture = {
+    summary: { totals: { employees: 0, scientific_members: 0, schools: 0, observations: 0 }, observation_overview: [] },
+    isLoading: false,
+    hasError: false,
+    reload() {},
+  };
+  const html = renderToStaticMarkup(createElement(page.DashboardPage));
+  assert.ok(html.includes("هنوز هیچ مشاهده‌ای ثبت نشده است"));
+  assert.ok(html.includes((0).toLocaleString("fa-IR")));
+  assert.ok(!html.includes("has_capability"));
 });

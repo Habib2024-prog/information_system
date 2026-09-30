@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { getDashboardRecentActivities, getDashboardSummary, type DashboardSummary } from "../api/dashboard";
+import { subscribeDashboardInvalidation } from "../lib/dashboardRefresh";
 import type { AuditLog } from "../types/audit";
 
 export function useDashboardMetrics() {
@@ -9,6 +10,15 @@ export function useDashboardMetrics() {
   const [hasError, setHasError] = useState(false);
   const [revision, setRevision] = useState(0);
   const reload = useCallback(() => setRevision((value) => value + 1), []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeDashboardInvalidation(reload);
+    window.addEventListener("focus", reload);
+    return () => {
+      unsubscribe();
+      window.removeEventListener("focus", reload);
+    };
+  }, [reload]);
 
   useEffect(() => {
     let cancelled = false;
@@ -32,6 +42,16 @@ export function useDashboardActivities(enabled: boolean) {
   const [hasError, setHasError] = useState(false);
   const [revision, setRevision] = useState(0);
   const reload = useCallback(() => setRevision((value) => value + 1), []);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const unsubscribe = subscribeDashboardInvalidation(reload);
+    window.addEventListener("focus", reload);
+    return () => {
+      unsubscribe();
+      window.removeEventListener("focus", reload);
+    };
+  }, [enabled, reload]);
 
   useEffect(() => {
     let cancelled = false;

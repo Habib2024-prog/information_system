@@ -12,8 +12,12 @@ from app.services.profile_image_storage import LOCAL_MEDIA_URL, LocalProfileImag
 
 
 def create_app() -> FastAPI:
-    settings.validate_profile_image_storage()
     app = FastAPI(title="سیستم مدیریت اطلاعات دولتی", docs_url=None, redoc_url=None, openapi_url=None)
+    # Persistent media is optional.  Core authentication and administrative
+    # services must remain available when a cloud deployment has not yet been
+    # configured with persistent profile-image storage.
+    profile_image_storage_unavailable_reason = settings.profile_image_storage_unavailable_reason()
+    app.state.profile_image_storage_unavailable_reason = profile_image_storage_unavailable_reason
     app.add_exception_handler(RequestValidationError, safe_auth_validation_errors)
 
     app.add_middleware(
@@ -27,7 +31,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(documentation_router)
     app.include_router(api_router)
-    if settings.profile_image_storage_backend == "local":
+    if settings.profile_image_storage_backend == "local" and profile_image_storage_unavailable_reason is None:
         app.mount(
             LOCAL_MEDIA_URL,
             StaticFiles(directory=LocalProfileImageStorage().directory, check_dir=False),

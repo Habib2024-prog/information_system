@@ -1,4 +1,5 @@
 import { apiGet, apiRequest, apiFetch, apiDownload } from "./client";
+import { invalidateDashboard } from "../lib/dashboardRefresh";
 import type { PaginatedResponse } from "../types/api";
 
 interface ObservationBasePayload {
@@ -69,20 +70,28 @@ function toQuery(params: Partial<ObservationFilters & { page: number; page_size:
   return serialized ? `?${serialized}` : "";
 }
 
-export function createTeacherObservation(employeeId: number, payload: TeacherObservationPayload) {
-  return apiRequest(`/api/employees/${employeeId}/teacher-observations`, { method: "POST", body: JSON.stringify(payload) });
+export async function createTeacherObservation(employeeId: number, payload: TeacherObservationPayload) {
+  const observation = await apiRequest<TeacherObservationDetail>(`/api/employees/${employeeId}/teacher-observations`, { method: "POST", body: JSON.stringify(payload) });
+  invalidateDashboard();
+  return observation;
 }
 
-export function createAmirObservation(employeeId: number, payload: AmirObservationPayload) {
-  return apiRequest(`/api/employees/${employeeId}/amir-observations`, { method: "POST", body: JSON.stringify(payload) });
+export async function createAmirObservation(employeeId: number, payload: AmirObservationPayload) {
+  const observation = await apiRequest<AmirObservationDetail>(`/api/employees/${employeeId}/amir-observations`, { method: "POST", body: JSON.stringify(payload) });
+  invalidateDashboard();
+  return observation;
 }
 
-export function updateTeacherObservation(employeeId: number, observationId: number, payload: TeacherObservationPayload) {
-  return apiRequest<TeacherObservationDetail>(`/api/employees/${employeeId}/teacher-observations/${observationId}`, { method: "PUT", body: JSON.stringify(payload) });
+export async function updateTeacherObservation(employeeId: number, observationId: number, payload: TeacherObservationPayload) {
+  const observation = await apiRequest<TeacherObservationDetail>(`/api/employees/${employeeId}/teacher-observations/${observationId}`, { method: "PUT", body: JSON.stringify(payload) });
+  invalidateDashboard();
+  return observation;
 }
 
-export function updateAmirObservation(employeeId: number, observationId: number, payload: AmirObservationPayload) {
-  return apiRequest<AmirObservationDetail>(`/api/employees/${employeeId}/amir-observations/${observationId}`, { method: "PUT", body: JSON.stringify(payload) });
+export async function updateAmirObservation(employeeId: number, observationId: number, payload: AmirObservationPayload) {
+  const observation = await apiRequest<AmirObservationDetail>(`/api/employees/${employeeId}/amir-observations/${observationId}`, { method: "PUT", body: JSON.stringify(payload) });
+  invalidateDashboard();
+  return observation;
 }
 
 export const getTeacherObservation = (employeeId: number, observationId: number) => apiGet<TeacherObservationDetail>(`/api/employees/${employeeId}/teacher-observations/${observationId}`);
@@ -96,11 +105,13 @@ export const getAmirObservations = (params: Partial<ObservationFilters & { page:
 export async function deleteTeacherObservation(employeeId: number, observationId: number): Promise<void> {
   const response = await apiFetch(`/api/employees/${employeeId}/teacher-observations/${observationId}`, { method: "DELETE" });
   if (!response.ok) throw new Error("حذف مشاهده با مشکل روبه‌رو شد.");
+  invalidateDashboard();
 }
 
 export async function deleteAmirObservation(employeeId: number, observationId: number): Promise<void> {
   const response = await apiFetch(`/api/employees/${employeeId}/amir-observations/${observationId}`, { method: "DELETE" });
   if (!response.ok) throw new Error("حذف مشاهده با مشکل روبه‌رو شد.");
+  invalidateDashboard();
 }
 
 async function exportObservations(path: string, fallbackFilename: string): Promise<void> {

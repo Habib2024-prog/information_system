@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     secret_key: SecretStr | None = None
     jwt_algorithm: Literal["HS256", "HS384", "HS512"] = "HS256"
     access_token_expire_minutes: int = Field(default=60, gt=0)
-    app_environment: Literal["development", "test", "production"] = "development"
+    app_environment: Literal["development", "test", "cloud", "production"] = "development"
     profile_image_storage_backend: Literal["local", "s3"] = "local"
     profile_image_local_directory: str = "backend/uploads/profile-images"
     profile_image_local_persistent: bool = False
@@ -56,29 +56,42 @@ class Settings(BaseSettings):
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins_raw.split(",") if origin.strip()]
 
-    def validate_profile_image_storage(self) -> None:
+    def profile_image_storage_unavailable_reason(self) -> str | None:
+        """Return why profile-image storage is unavailable without blocking app startup.
+
+        Profile images are an optional media feature.  Calling code that needs to
+        read or write media can use this result to fail closed, while core API
+        endpoints remain available when a cloud service has not configured
+        persistent media storage yet.
+        """
         render_runtime = bool(
             os.getenv("RENDER") or os.getenv("RENDER_SERVICE_ID") or os.getenv("RENDER_EXTERNAL_URL")
         )
         if self.profile_image_storage_backend == "local" and render_runtime:
-            raise RuntimeError(
+            return (
                 "Render local filesystem is not persistent for profile images; configure S3 storage."
             )
         if (
-            self.app_environment == "production"
+            self.app_environment in {"cloud", "production"}
             and self.profile_image_storage_backend == "local"
             and not self.profile_image_local_persistent
         ):
-            raise RuntimeError(
+            return (
                 "PROFILE_IMAGE_LOCAL_PERSISTENT=true is required for verified persistent local production storage."
             )
         if self.profile_image_storage_backend == "s3" and not all((
             self.profile_image_s3_bucket,
             self.profile_image_s3_public_base_url,
         )):
-            raise RuntimeError(
+            return (
                 "PROFILE_IMAGE_S3_BUCKET and PROFILE_IMAGE_S3_PUBLIC_BASE_URL are required for S3 storage."
             )
+        return None
+
+    def validate_profile_image_storage(self) -> None:
+        """Raise when a profile-image storage operation is attempted unsafely."""
+        if reason := self.profile_image_storage_unavailable_reason():
+            raise RuntimeError(reason)
 
 
 @lru_cache

@@ -1,4 +1,5 @@
 import { DEFAULT_PAGE_SIZE } from "../lib/pagination";
+import { invalidateDashboard } from "../lib/dashboardRefresh";
 import { apiGet, apiRequest, apiFetch, apiDownload } from "./client";
 import type { Employee, PaginatedResponse } from "../types/api";
 
@@ -66,12 +67,22 @@ export const getEmployees = (params: EmployeeListParams = { ...emptyEmployeeFilt
   apiGet<PaginatedResponse<Employee>>(`/api/employees${toQuery(params)}`);
 export const getEmployee = (id: number) => apiGet<Employee>(`/api/employees/${id}`);
 
-export const createEmployee = (payload: EmployeePayload) => apiRequest<Employee>("/api/employees", { method: "POST", body: JSON.stringify(payload) });
-export const updateEmployee = (id: number, payload: EmployeePayload) => apiRequest<Employee>(`/api/employees/${id}`, { method: "PUT", body: JSON.stringify(payload) });
+export async function createEmployee(payload: EmployeePayload): Promise<Employee> {
+  const employee = await apiRequest<Employee>("/api/employees", { method: "POST", body: JSON.stringify(payload) });
+  invalidateDashboard();
+  return employee;
+}
+
+export async function updateEmployee(id: number, payload: EmployeePayload): Promise<Employee> {
+  const employee = await apiRequest<Employee>(`/api/employees/${id}`, { method: "PUT", body: JSON.stringify(payload) });
+  invalidateDashboard();
+  return employee;
+}
 
 export async function deleteEmployee(id: number): Promise<void> {
   const response = await apiFetch(`/api/employees/${id}`, { method: "DELETE" });
   if (!response.ok) throw new Error("حذف کارمند با مشکل روبه‌رو شد.");
+  invalidateDashboard();
 }
 
 export async function exportEmployees(filters: Partial<EmployeeFilters>): Promise<string> {

@@ -9,9 +9,16 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.security import create_access_token
+from app.db.session import get_db
 from app.models.user import User
 from app.schemas.user import UserCreate
-from app.services.profile_image_storage import S3ProfileImageStorage
+from app.services.profile_image_storage import (
+    LOCAL_MEDIA_URL,
+    LocalProfileImageStorage,
+    S3ProfileImageStorage,
+    get_profile_image_storage,
+    validate_profile_image,
+)
 from app.services.user_service import UserService
 
 
@@ -119,7 +126,13 @@ def test_profile_image_key_survives_later_login_and_current_user_requests(
     assert current.json()["profile_image_url"].endswith(key)
 
 
-def test_s3_profile_url_is_derived_from_the_stable_key_not_a_presigned_url() -> None:
+def test_s3_profile_url_is_derived_from_the_stable_key_not_a_presigned_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "profile_image_storage_backend", "s3")
+    monkeypatch.setattr(settings, "profile_image_s3_bucket", "profile-images")
+    monkeypatch.setattr(settings, "profile_image_s3_public_base_url", "https://media.example.test")
+    settings.validate_profile_image_storage()
     storage = object.__new__(S3ProfileImageStorage)
     storage.public_base_url = "https://media.example.test"
     storage.prefix = "profile-images"
@@ -193,11 +206,21 @@ def test_production_requires_explicit_persistent_local_profile_storage(monkeypat
         settings.validate_profile_image_storage()
 
 
-def test_office_server_can_explicitly_use_persistent_local_profile_storage(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_office_server_can_explicitly_use_persistent_local_profile_storage(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
     monkeypatch.setattr(settings, "app_environment", "production")
     monkeypatch.setattr(settings, "profile_image_storage_backend", "local")
     monkeypatch.setattr(settings, "profile_image_local_persistent", True)
+    monkeypatch.setattr(settings, "profile_image_local_directory", str(tmp_path))
     settings.validate_profile_image_storage()
+    filename, content, content_type = image_upload("png")
+    image = validate_profile_image(content=content, content_type=content_type, filename=filename)
+    storage = get_profile_image_storage()
+    assert isinstance(storage, LocalProfileImageStorage)
+    key = storage.save(image)
+    assert (tmp_path / key).is_file()
 
 
 def test_render_rejects_local_profile_storage_even_if_environment_is_misconfigured(
@@ -208,3 +231,63 @@ def test_render_rejects_local_profile_storage_even_if_environment_is_misconfigur
     monkeypatch.setenv("RENDER", "true")
     with pytest.raises(RuntimeError, match="Render local filesystem"):
         settings.validate_profile_image_storage()
+
+
+def test_render_without_persistent_media_starts_and_rejects_profile_image_changes(
+    db_session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """Cloud deployments remain usable but never write images to ephemeral disk."""
+    from app.main import create_app
+
+    ephemeral_directory = tmp_path / "render-ephemeral-profile-images"
+    monkeypatch.setattr(settings, "app_environment", "cloud")
+    monkeypatch.setattr(settings, "profile_image_storage_backend", "local")
+    monkeypatch.setattr(settings, "profile_image_local_persistent", False)
+    monkeypatch.setattr(settings, "profile_image_local_directory", str(ephemeral_directory))
+    monkeypatch.setenv("RENDER", "true")
+
+    unsafe_media_app = create_app()
+    assert unsafe_media_app.state.profile_image_storage_unavailable_reason is not None
+    assert not any(getattr(route, "path", None) == LOCAL_MEDIA_URL for route in unsafe_media_app.routes)
+
+    def override_get_db():
+        try:
+            yield db_session
+        finally:
+            db_session.info.pop("audit_context", None)
+
+    unsafe_media_app.dependency_overrides[get_db] = override_get_db
+    user = create_user(db_session, "render-media-user")
+    user.profile_image_key = "existing-profile-image.webp"
+    db_session.commit()
+
+    with TestClient(unsafe_media_app) as client:
+        # Core endpoints retain normal behavior and existing keys render as a
+        # fallback avatar because an image URL cannot safely be served.
+        assert client.get("/health").status_code == 200
+        login = client.post("/api/auth/login", json={"username": user.username, "password": PASSWORD})
+        assert login.status_code == 200
+        authenticated_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+        current = client.get("/api/auth/me", headers=authenticated_headers)
+        assert current.status_code == 200
+        assert current.json()["profile_image_url"] is None
+        assert client.get("/api/employees", headers=authenticated_headers).status_code == 200
+
+        filename, content, content_type = image_upload("png")
+        upload = client.put(
+            f"/api/users/{user.id}/profile-image",
+            headers=authenticated_headers,
+            files={"image": (filename, content, content_type)},
+        )
+        assert upload.status_code == 503
+        assert "ذخیره" in upload.json()["detail"]
+
+        removal = client.delete(f"/api/users/{user.id}/profile-image", headers=authenticated_headers)
+        assert removal.status_code == 503
+
+    db_session.refresh(user)
+    assert user.profile_image_key == "existing-profile-image.webp"
+    assert not ephemeral_directory.exists()
+    unsafe_media_app.dependency_overrides.clear()

@@ -24,6 +24,7 @@ import { getJobTitleLabel, jobTitleLabels } from "../lib/employeeLabels";
 import { formatJalaliDate } from "../lib/date";
 import { getFinalResultLabel } from "../lib/observationLabels";
 import { amirObservationJobTitleCodes, getObservationFormKind } from "../lib/observationEligibility";
+import { DEFAULT_PAGE_SIZE, getValidPage } from "../lib/pagination";
 import type { Department, Employee, ScientificMember } from "../types/api";
 
 type ObservationTab = "teacher" | "amir";
@@ -41,7 +42,7 @@ const emptyEmployeePickerFilters: EmployeePickerFilters = {
   department_id: "",
   job_title_code: "",
 };
-const pageSize = 20;
+const pageSize = DEFAULT_PAGE_SIZE;
 
 export function ObservationsPage() {
   const { showToast } = useToast();
@@ -73,6 +74,11 @@ export function ObservationsPage() {
     try {
       const query = { ...filters, page, page_size: pageSize };
       const response = tab === "teacher" ? await getTeacherObservations(query) : await getAmirObservations(query);
+      const validPage = getValidPage(page, response.total, response.page_size);
+      if (validPage !== page) {
+        setPage(validPage);
+        return;
+      }
       setItems(response.items); setTotal(response.total);
     } catch { setError("دریافت فهرست مشاهدات با مشکل روبه‌رو شد."); }
     finally { setLoading(false); }

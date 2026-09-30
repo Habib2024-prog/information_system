@@ -1,4 +1,4 @@
-import { Eye, EyeOff, LockKeyhole, LogIn, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, LoaderCircle, LockKeyhole, LogIn, ShieldCheck } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 
@@ -17,7 +17,7 @@ export function LoginPage() {
   const [error, setError] = useState("");
   const [validation, setValidation] = useState(false);
   if (isAuthenticated) return <Navigate to="/" replace />;
-  if ((loading && !submitting) || sessionError) return <SessionGate />;
+  if (loading || sessionError) return <SessionGate />;
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -57,12 +57,12 @@ export function LoginPage() {
           </label>
           <label className="block"><span className="mb-2 block text-sm font-semibold text-ink">رمز عبور</span>
             <span className="relative block"><input className="input h-11 pl-11" dir="ltr" name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} disabled={submitting} onChange={(event) => setPassword(event.target.value)} aria-invalid={validation && !password} />
-              <button type="button" className="absolute left-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted hover:bg-white/55 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" onClick={() => setShowPassword((current) => !current)} aria-label={showPassword ? "پنهان کردن رمز عبور" : "نمایش رمز عبور"}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button>
+              <button type="button" disabled={submitting} className="absolute left-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted hover:bg-white/55 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50" onClick={() => setShowPassword((current) => !current)} aria-label={showPassword ? "پنهان کردن رمز عبور" : "نمایش رمز عبور"}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button>
             </span>
             {validation && !password ? <span className="mt-1.5 block text-xs font-medium text-danger">رمز عبور را وارد کنید.</span> : null}
           </label>
           {error ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-sm leading-6 text-rose-700" role="alert">{error}</p> : null}
-          <Button className="h-11 w-full" type="submit" variant="primary" disabled={submitting}><LogIn size={17} />{submitting ? "در حال ورود" : "ورود به سیستم"}</Button>
+          <Button className="h-11 w-full" type="submit" variant="primary" disabled={submitting} aria-busy={submitting}>{submitting ? <LoaderCircle className="animate-spin motion-reduce:animate-none" size={17} /> : <LogIn size={17} />}{submitting ? "در حال ورود..." : "ورود به سیستم"}</Button>
         </form>
       </div>
     </section>

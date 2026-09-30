@@ -27,6 +27,12 @@ class ProfileImageValidationError(Exception):
     """Raised when an uploaded image is not a safe supported image."""
 
 
+class ProfileImageStorageUnavailableError(Exception):
+    """Raised when optional profile-image media has no safe persistent storage."""
+
+    user_message = "ذخیره‌سازی پایدار تصویر نمایه در این سرور فعال نیست. لطفاً با مدیر سیستم تماس بگیرید."
+
+
 @dataclass(frozen=True)
 class ValidatedProfileImage:
     content: bytes
@@ -159,10 +165,21 @@ class S3ProfileImageStorage:
 
 
 def get_profile_image_storage() -> ProfileImageStorage:
-    if settings.profile_image_storage_backend == "s3":
-        return S3ProfileImageStorage()
-    return LocalProfileImageStorage()
+    try:
+        settings.validate_profile_image_storage()
+        if settings.profile_image_storage_backend == "s3":
+            return S3ProfileImageStorage()
+        return LocalProfileImageStorage()
+    except RuntimeError as error:
+        raise ProfileImageStorageUnavailableError() from error
 
 
 def profile_image_url(key: str | None) -> str | None:
-    return get_profile_image_storage().url_for(key)
+    if not key:
+        return None
+    try:
+        return get_profile_image_storage().url_for(key)
+    except ProfileImageStorageUnavailableError:
+        # Keep existing database references intact and let consumers use their
+        # normal initials/avatar fallback until persistent media is configured.
+        return None

@@ -1,4 +1,5 @@
 import { DEFAULT_PAGE_SIZE } from "../lib/pagination";
+import { invalidateDashboard } from "../lib/dashboardRefresh";
 import { apiGet, apiRequest, apiFetch, apiDownload } from "./client";
 import type { PaginatedResponse, School } from "../types/api";
 
@@ -80,12 +81,22 @@ export function getSchools(params: SchoolListParams = { ...emptySchoolFilters, p
 }
 
 export const getSchool = (schoolId: number) => apiGet<School>(`/api/schools/${schoolId}`);
-export const createSchool = (payload: SchoolPayload) => apiRequest<School>("/api/schools", { method: "POST", body: JSON.stringify(payload) });
-export const updateSchool = (schoolId: number, payload: SchoolPayload) => apiRequest<School>(`/api/schools/${schoolId}`, { method: "PUT", body: JSON.stringify(payload) });
+export async function createSchool(payload: SchoolPayload): Promise<School> {
+  const school = await apiRequest<School>("/api/schools", { method: "POST", body: JSON.stringify(payload) });
+  invalidateDashboard();
+  return school;
+}
+
+export async function updateSchool(schoolId: number, payload: SchoolPayload): Promise<School> {
+  const school = await apiRequest<School>(`/api/schools/${schoolId}`, { method: "PUT", body: JSON.stringify(payload) });
+  invalidateDashboard();
+  return school;
+}
 
 export async function deleteSchool(schoolId: number): Promise<void> {
   const response = await apiFetch(`/api/schools/${schoolId}`, { method: "DELETE" });
   if (!response.ok) throw new Error("حذف مکتب با مشکل روبه‌رو شد.");
+  invalidateDashboard();
 }
 
 export async function exportSchools(filters: Partial<SchoolFilters>): Promise<string> {

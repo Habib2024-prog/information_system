@@ -104,12 +104,15 @@ class UserService:
         old_key = user.profile_image_key
         if old_key is None:
             return to_user_read(user)
+        # Resolve storage before changing the reference.  In an unsafe cloud
+        # configuration this raises a controlled error and preserves the key.
+        storage = storage or get_profile_image_storage()
         before = record_snapshot(user)
         self.repository.update(db, user, {"profile_image_key": None})
         audit_service.commit_change(
             db, record=user, action=AuditAction.UPDATE, entity_type=AuditEntity.USER, before_data=before,
         )
-        self._delete_stale_image(storage or get_profile_image_storage(), old_key)
+        self._delete_stale_image(storage, old_key)
         db.refresh(user)
         return to_user_read(user)
 
