@@ -127,6 +127,33 @@ def test_dashboard_refreshes_counts_after_deletion_and_preserves_active_history(
     assert totals == {"employees": 2, "scientific_members": 0, "schools": 1, "observations": 4}
 
 
+def test_dashboard_returns_zero_after_all_observation_categories_are_deleted(
+    client: TestClient, dashboard_records: dict,
+) -> None:
+    assert client.get("/api/dashboard/summary").json()["totals"]["observations"] == 5
+
+    for observation in dashboard_records["teachers"]:
+        if observation.deleted_at is None:
+            response = client.delete(
+                f"/api/employees/{observation.employee_id}/teacher-observations/{observation.id}",
+            )
+            assert response.status_code == 204
+    for observation in dashboard_records["amirs"]:
+        if observation.deleted_at is None:
+            response = client.delete(
+                f"/api/employees/{observation.employee_id}/amir-observations/{observation.id}",
+            )
+            assert response.status_code == 204
+
+    assert client.get("/api/dashboard/summary").json() == {
+        "totals": {"employees": 3, "scientific_members": 1, "schools": 1, "observations": 0},
+        "observation_overview": [
+            {"observation_type": "teacher", "total": 0, "results": []},
+            {"observation_type": "amir_senior_teacher", "total": 0, "results": []},
+        ],
+    }
+
+
 def test_dashboard_uses_bounded_aggregate_queries(db_session: Session, dashboard_records: dict) -> None:
     statements = []
 

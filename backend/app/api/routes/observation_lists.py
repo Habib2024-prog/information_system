@@ -38,7 +38,7 @@ def list_teacher_observations(
     subject: str | None = None,
     final_result_code: str | None = None,
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=10, ge=1, le=100),
     sort_by: TeacherObservationSortField = "observation_date",
     sort_order: TeacherSortOrder = "desc",
 ) -> TeacherObservationGlobalListResponse:
@@ -72,7 +72,7 @@ def list_amir_observations(
     subject: str | None = None,
     final_result_code: str | None = None,
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=10, ge=1, le=100),
     sort_by: AmirObservationSortField = "observation_date",
     sort_order: AmirSortOrder = "desc",
 ) -> AmirObservationGlobalListResponse:

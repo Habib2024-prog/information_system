@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 from decimal import Decimal
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -170,6 +171,47 @@ def test_employee_can_have_multiple_amir_observations(client: TestClient, db_ses
     assert first["id"] != second["id"]
     assert response.status_code == 200
     assert response.json()["total"] == 2
+
+
+@pytest.mark.parametrize("record_count", [0, 10, 11, 20, 21])
+def test_global_amir_observations_use_default_ten_record_pages(
+    client: TestClient, db_session: Session, record_count: int,
+) -> None:
+    if record_count:
+        employee, observer = _eligible_employee_and_observer(client, db_session)
+        for index in range(record_count):
+            _create_observation(client, employee["id"], observer["id"], subject=f"pagination-{index}")
+
+    first = client.get("/api/amir-observations")
+    assert first.status_code == 200
+    first_body = first.json()
+    assert (first_body["page"], first_body["page_size"], first_body["total"]) == (1, 10, record_count)
+    assert len(first_body["items"]) == min(10, record_count)
+
+    ids: list[int] = []
+    for page in range(1, max(1, (record_count + 9) // 10) + 1):
+        body = client.get("/api/amir-observations", params={"page": page}).json()
+        assert body["page"] == page and body["page_size"] == 10
+        assert len(body["items"]) == min(10, max(0, record_count - (page - 1) * 10))
+        ids.extend(item["id"] for item in body["items"])
+    assert len(ids) == len(set(ids)) == record_count
+
+
+def test_global_amir_observation_last_page_is_empty_after_its_final_record_is_deleted(
+    client: TestClient, db_session: Session,
+) -> None:
+    employee, observer = _eligible_employee_and_observer(client, db_session)
+    for index in range(21):
+        _create_observation(client, employee["id"], observer["id"], subject=f"delete-page-{index}")
+
+    final_page = client.get("/api/amir-observations", params={"page": 3}).json()
+    assert len(final_page["items"]) == 1
+    assert client.delete(
+        f"/api/employees/{employee['id']}/amir-observations/{final_page['items'][0]['id']}"
+    ).status_code == 204
+    invalid_page = client.get("/api/amir-observations", params={"page": 3}).json()
+    assert invalid_page["items"] == [] and invalid_page["total"] == 20
+    assert len(client.get("/api/amir-observations", params={"page": 2}).json()["items"]) == 10
 
 
 def test_rejects_teacher_and_unsupported_job_titles(

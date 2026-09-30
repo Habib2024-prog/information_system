@@ -1,4 +1,5 @@
 from functools import lru_cache
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -30,6 +31,7 @@ class Settings(BaseSettings):
     app_environment: Literal["development", "test", "production"] = "development"
     profile_image_storage_backend: Literal["local", "s3"] = "local"
     profile_image_local_directory: str = "backend/uploads/profile-images"
+    profile_image_local_persistent: bool = False
     profile_image_max_bytes: int = Field(default=5 * 1024 * 1024, gt=0)
     profile_image_s3_bucket: str | None = None
     profile_image_s3_region: str | None = None
@@ -55,9 +57,20 @@ class Settings(BaseSettings):
         return [origin.strip() for origin in self.cors_origins_raw.split(",") if origin.strip()]
 
     def validate_profile_image_storage(self) -> None:
-        if self.app_environment == "production" and self.profile_image_storage_backend == "local":
+        render_runtime = bool(
+            os.getenv("RENDER") or os.getenv("RENDER_SERVICE_ID") or os.getenv("RENDER_EXTERNAL_URL")
+        )
+        if self.profile_image_storage_backend == "local" and render_runtime:
             raise RuntimeError(
-                "PROFILE_IMAGE_STORAGE_BACKEND must use persistent object storage in production."
+                "Render local filesystem is not persistent for profile images; configure S3 storage."
+            )
+        if (
+            self.app_environment == "production"
+            and self.profile_image_storage_backend == "local"
+            and not self.profile_image_local_persistent
+        ):
+            raise RuntimeError(
+                "PROFILE_IMAGE_LOCAL_PERSISTENT=true is required for verified persistent local production storage."
             )
         if self.profile_image_storage_backend == "s3" and not all((
             self.profile_image_s3_bucket,

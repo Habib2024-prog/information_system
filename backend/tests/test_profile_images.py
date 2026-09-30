@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.core.security import create_access_token
 from app.models.user import User
 from app.schemas.user import UserCreate
+from app.services.profile_image_storage import S3ProfileImageStorage
 from app.services.user_service import UserService
 
 
@@ -93,6 +94,40 @@ def test_replace_and_remove_profile_image_cleans_local_file(
     assert not (tmp_path / second_response.json()["profile_image_url"].rsplit("/", 1)[-1]).exists()
 
 
+def test_profile_image_key_survives_later_login_and_current_user_requests(
+    anonymous_client: TestClient, db_session: Session,
+) -> None:
+    user = create_user(db_session, "persistent-profile-key")
+    uploaded = anonymous_client.put(
+        f"/api/users/{user.id}/profile-image", headers=headers(user), files={"image": image_upload("png")},
+    )
+    assert uploaded.status_code == 200
+    db_session.refresh(user)
+    key = user.profile_image_key
+    assert key is not None
+
+    first_login = anonymous_client.post("/api/auth/login", json={"username": user.username, "password": PASSWORD})
+    second_login = anonymous_client.post("/api/auth/login", json={"username": user.username, "password": PASSWORD})
+    assert first_login.status_code == second_login.status_code == 200
+    assert first_login.json()["user"]["profile_image_url"].endswith(key)
+    assert second_login.json()["user"]["profile_image_url"].endswith(key)
+
+    current = anonymous_client.get(
+        "/api/auth/me", headers={"Authorization": f"Bearer {second_login.json()['access_token']}"},
+    )
+    assert current.status_code == 200
+    assert current.json()["profile_image_url"].endswith(key)
+
+
+def test_s3_profile_url_is_derived_from_the_stable_key_not_a_presigned_url() -> None:
+    storage = object.__new__(S3ProfileImageStorage)
+    storage.public_base_url = "https://media.example.test"
+    storage.prefix = "profile-images"
+    url = storage.url_for("stable-key.webp")
+    assert url == "https://media.example.test/profile-images/stable-key.webp"
+    assert "X-Amz-" not in url
+
+
 def test_rejects_invalid_and_oversized_profile_uploads(
     anonymous_client: TestClient, db_session: Session,
 ) -> None:
@@ -150,8 +185,26 @@ def test_users_store_only_a_profile_image_key(db_session: Session) -> None:
     assert not any(column.name in {"profile_image", "profile_image_bytes", "profile_image_base64"} for column in columns)
 
 
-def test_production_rejects_ephemeral_local_profile_storage(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_production_requires_explicit_persistent_local_profile_storage(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "app_environment", "production")
     monkeypatch.setattr(settings, "profile_image_storage_backend", "local")
-    with pytest.raises(RuntimeError, match="persistent object storage"):
+    monkeypatch.setattr(settings, "profile_image_local_persistent", False)
+    with pytest.raises(RuntimeError, match="PROFILE_IMAGE_LOCAL_PERSISTENT"):
+        settings.validate_profile_image_storage()
+
+
+def test_office_server_can_explicitly_use_persistent_local_profile_storage(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "app_environment", "production")
+    monkeypatch.setattr(settings, "profile_image_storage_backend", "local")
+    monkeypatch.setattr(settings, "profile_image_local_persistent", True)
+    settings.validate_profile_image_storage()
+
+
+def test_render_rejects_local_profile_storage_even_if_environment_is_misconfigured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "app_environment", "development")
+    monkeypatch.setattr(settings, "profile_image_storage_backend", "local")
+    monkeypatch.setenv("RENDER", "true")
+    with pytest.raises(RuntimeError, match="Render local filesystem"):
         settings.validate_profile_image_storage()
